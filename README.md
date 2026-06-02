@@ -1,9 +1,45 @@
-# Dock Configurator — Engines (Phase 0)
+# Dock Configurator
 
-Headless, fully-tested engines for the Dock Configurator SaaS. This is **Phase 0**
-of the [canonical product spec](#spec-traceability): the credibility core that
-everything else is built on. There is **no UI here** — just three pure functions
-over a single `DockConfig` JSON, exactly as the spec mandates in §7.1:
+Multi-tenant SaaS dock configurator. Built in phases against the canonical spec.
+
+- **Phase 0 (merged):** the headless, fully-tested engines — the credibility core.
+- **Phase 1 (this):** the customer-facing configurator app on top of the engines —
+  questionnaire → recommendation → auto-starting design → live-validated 2D
+  configurator with four parametric views → branded PDF → design versioning.
+
+## Phase 1 — the configurator app
+
+A hosted Next.js (App Router) app for a single dev tenant. The golden rule:
+**the UI never re-derives geometry, validation, or pricing — it always calls the
+engine.** A new pure engine module, `blueprint.ts`, emits framework-free drawing
+primitives for every view; the on-screen SVG renderer and the server-side PDF
+renderer are both dumb mappers over those identical primitives, so the screen and
+the print can never diverge.
+
+```bash
+npm install
+npm run dev        # configurator at http://localhost:3000
+npm run build      # production build (also runs Next's type check)
+npm test           # 86 unit/integration tests (engine + app lib)
+npm run typecheck  # strict engine tsc + app tsc
+```
+
+Flow: shoreline questionnaire (`/`) → recommendation + reasons/cautions →
+auto-seeded `DockConfig` in the configurator (`/design/[id]`) with live
+`validationEngine` + `pricingEngine` on every edit, four views, save/price gate
+capturing email + consent, immutable revisions with restore/branch
+(`/design/[id]/history`), and a branded multi-sheet PDF
+(`/api/designs/[id]/pdf`). Identity is email + magic link (no passwords).
+Persistence is a small file store behind a narrow interface (Prisma/Postgres
+swap-in is Phase 2). See `PHASE1.md` for the deliverable-by-deliverable map.
+
+---
+
+## Phase 0 — Engines
+
+Headless, fully-tested engines for the Dock Configurator SaaS: the credibility
+core that everything else is built on. Pure functions over a single `DockConfig`
+JSON, exactly as the spec mandates in §7.1:
 
 > The dock-config JSON drives three pure, unit-tested consumers: **validation
 > engine**, **pricing engine**, and **view/blueprint generator**. Build these first.

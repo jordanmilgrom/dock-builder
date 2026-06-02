@@ -1,0 +1,87 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`drawingToSvg — render snapshot per view > end_elevation is valid, sized SVG 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 480" width="100%" role="img" aria-label="Elevation — end (schematic, V exaggerated)">
+  <rect x="0" y="-17.54000000000002" width="800" height="497.54" fill="#e0f2fe" stroke="none" stroke-width="1" />
+  <line x1="0" y1="-17.54000000000002" x2="800" y2="-17.54000000000002" stroke="#0284c7" stroke-width="1.5" />
+  <text x="6" y="-21.54000000000002" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="start" fill="#0284c7">waterline</text>
+  <line x1="0" y1="424.1" x2="800" y2="424.1" stroke="#a8a29e" stroke-width="1" stroke-dasharray="5 3" />
+  <rect x="366.55" y="-78.3" width="66.9" height="98.19999999999999" fill="#cbd5e1" stroke="#475569" stroke-width="1" />
+  <rect x="299.6" y="-100.3" width="200.79999999999995" height="22" fill="#f5e6c8" stroke="#1f2937" stroke-width="1.5" />
+  <line x1="516.4" y1="-78.3" x2="516.4" y2="-17.54000000000002" stroke="#6b7280" stroke-width="1" />
+  <line x1="512.4" y1="-78.3" x2="520.4" y2="-78.3" stroke="#6b7280" stroke-width="1" />
+  <line x1="512.4" y1="-17.54000000000002" x2="520.4" y2="-17.54000000000002" stroke="#6b7280" stroke-width="1" />
+  <text x="522.4" y="-47.92000000000001" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="start" fill="#6b7280">freeboard 9.9 in</text>
+  <line x1="299.6" y1="444.1" x2="500.4" y2="444.1" stroke="#6b7280" stroke-width="1" />
+  <line x1="299.6" y1="440.1" x2="299.6" y2="448.1" stroke="#6b7280" stroke-width="1" />
+  <line x1="500.4" y1="440.1" x2="500.4" y2="448.1" stroke="#6b7280" stroke-width="1" />
+  <text x="400" y="439.1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="middle" fill="#6b7280">6 ft</text>
+</svg>"
+`;
+
+exports[`drawingToSvg — render snapshot per view > isometric is valid, sized SVG 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 480" width="100%" role="img" aria-label="Isometric (~30°)">
+  <rect x="0" y="0" width="800" height="480" fill="#e0f2fe" stroke="none" stroke-width="1" opacity="0.4" />
+  <polygon points="222.9,56 695.1,328.6 577.1,396.7 104.9,124.1" fill="#f5e6c8" stroke="#1f2937" stroke-width="1.5" />
+  <polygon points="222.9,83.3 695.1,355.9 695.1,328.6 222.9,56" fill="#cbd5e1" stroke="#1f2937" stroke-width="1" opacity="0.9" />
+  <polygon points="695.1,355.9 577.1,424 577.1,396.7 695.1,328.6" fill="#475569" stroke="#1f2937" stroke-width="1" opacity="0.8" />
+  <text x="400" y="464" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="middle" fill="#1f2937">24 ft × 6 ft · 144 ft²</text>
+</svg>"
+`;
+
+exports[`drawingToSvg — render snapshot per view > plan is valid, sized SVG 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 480" width="100%" role="img" aria-label="Plan — top view">
+  <rect x="0" y="0" width="800" height="480" fill="#e0f2fe" stroke="none" stroke-width="1" />
+  <rect x="0" y="0" width="78.2" height="480" fill="#a8a29e" stroke="none" stroke-width="1" opacity="0.5" />
+  <text x="8" y="20" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="bold" text-anchor="start" fill="#1f2937">SHORE</text>
+  <rect x="78.2" y="217.8" width="399.5" height="44.39999999999998" fill="#fde9c8" stroke="#1f2937" stroke-width="1" />
+  <text x="277.95" y="211.8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="middle" fill="#b45309">gangway</text>
+  <rect x="477.7" y="206.7" width="266.3" height="66.60000000000002" fill="#f5e6c8" stroke="#1f2937" stroke-width="1.5" />
+  <rect x="482.1" y="228.9" width="44.4" height="22.2" fill="#cbd5e1" stroke="#475569" stroke-width="1" opacity="0.85" />
+  <rect x="535.4" y="228.9" width="44.4" height="22.2" fill="#cbd5e1" stroke="#475569" stroke-width="1" opacity="0.85" />
+  <rect x="588.5999999999999" y="228.9" width="44.4" height="22.2" fill="#cbd5e1" stroke="#475569" stroke-width="1" opacity="0.85" />
+  <rect x="641.9" y="228.9" width="44.4" height="22.2" fill="#cbd5e1" stroke="#475569" stroke-width="1" opacity="0.85" />
+  <rect x="695.1999999999999" y="228.9" width="44.4" height="22.2" fill="#cbd5e1" stroke="#475569" stroke-width="1" opacity="0.85" />
+  <circle cx="544.3" cy="206.7" r="3" fill="#b45309" stroke="#1f2937" stroke-width="1" />
+  <circle cx="677.4" cy="273.3" r="3" fill="#b45309" stroke="#1f2937" stroke-width="1" />
+  <text x="740" y="287.3" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="end" fill="#b45309">ladder</text>
+  <line x1="477.7" y1="301.3" x2="744" y2="301.3" stroke="#6b7280" stroke-width="1" />
+  <line x1="477.7" y1="297.3" x2="477.7" y2="305.3" stroke="#6b7280" stroke-width="1" />
+  <line x1="744" y1="297.3" x2="744" y2="305.3" stroke="#6b7280" stroke-width="1" />
+  <text x="610.85" y="296.3" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="middle" fill="#6b7280">24 ft</text>
+  <line x1="766" y1="206.7" x2="766" y2="273.3" stroke="#6b7280" stroke-width="1" />
+  <line x1="762" y1="206.7" x2="770" y2="206.7" stroke="#6b7280" stroke-width="1" />
+  <line x1="762" y1="273.3" x2="770" y2="273.3" stroke="#6b7280" stroke-width="1" />
+  <text x="772" y="240" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="start" fill="#6b7280">6 ft</text>
+  <line x1="760" y1="56" x2="760" y2="24" stroke="#1f2937" stroke-width="1.5" />
+  <polygon points="760,20 755,32 765,32" fill="#1f2937" stroke="#1f2937" stroke-width="1" />
+  <text x="760" y="70" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="bold" text-anchor="middle" fill="#1f2937">N</text>
+</svg>"
+`;
+
+exports[`drawingToSvg — render snapshot per view > side_elevation is valid, sized SVG 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 480" width="100%" role="img" aria-label="Elevation — side (schematic, V exaggerated)">
+  <rect x="0" y="282.1" width="800" height="197.89999999999998" fill="#e0f2fe" stroke="none" stroke-width="1" />
+  <line x1="0" y1="282.1" x2="800" y2="282.1" stroke="#0284c7" stroke-width="1.5" />
+  <text x="6" y="278.1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="start" fill="#0284c7">waterline (low)</text>
+  <line x1="0" y1="424" x2="800" y2="424" stroke="#a8a29e" stroke-width="1.5" stroke-dasharray="5 3" />
+  <text x="6" y="438" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="start" fill="#a8a29e">bottom (−6 ft)</text>
+  <rect x="468.8" y="262.6" width="43" height="31.5" fill="#cbd5e1" stroke="#475569" stroke-width="1" />
+  <rect x="520.4" y="262.6" width="43" height="31.5" fill="#cbd5e1" stroke="#475569" stroke-width="1" />
+  <rect x="572" y="262.6" width="43" height="31.5" fill="#cbd5e1" stroke="#475569" stroke-width="1" />
+  <rect x="623.6" y="262.6" width="43" height="31.5" fill="#cbd5e1" stroke="#475569" stroke-width="1" />
+  <rect x="675.2" y="262.6" width="43" height="31.5" fill="#cbd5e1" stroke="#475569" stroke-width="1" />
+  <rect x="464.5" y="255.5" width="258" height="7.100000000000023" fill="#f5e6c8" stroke="#1f2937" stroke-width="1.5" />
+  <line x1="738.5" y1="262.6" x2="738.5" y2="282.1" stroke="#6b7280" stroke-width="1" />
+  <line x1="734.5" y1="262.6" x2="742.5" y2="262.6" stroke="#6b7280" stroke-width="1" />
+  <line x1="734.5" y1="282.1" x2="742.5" y2="282.1" stroke="#6b7280" stroke-width="1" />
+  <text x="744.5" y="272.35" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="start" fill="#6b7280">freeboard 9.9 in</text>
+  <line x1="56" y1="211.2" x2="464.5" y2="255.5" stroke="#b45309" stroke-width="2" />
+  <text x="260.25" y="227.35" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="middle" fill="#b45309">gangway 36 ft @ 8.3%</text>
+  <polygon points="0,282.1 56,282.1 56,211.2 0,211.2" fill="#a8a29e" stroke="none" stroke-width="1" opacity="0.5" />
+  <line x1="42" y1="282.1" x2="42" y2="211.2" stroke="#6b7280" stroke-width="1" />
+  <line x1="38" y1="282.1" x2="46" y2="282.1" stroke="#6b7280" stroke-width="1" />
+  <line x1="38" y1="211.2" x2="46" y2="211.2" stroke="#6b7280" stroke-width="1" />
+  <text x="48" y="246.65" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="normal" text-anchor="start" fill="#6b7280">rise 3 ft</text>
+</svg>"
+`;

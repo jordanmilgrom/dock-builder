@@ -233,17 +233,65 @@ export function gangwaySlopePct(config: DockConfig): number | null {
   return round((1 / ratio) * 100, 1);
 }
 
-/** Suggested piling count for fixed docks (§3.2/§3.3 bays from joist span). */
-export function pilingCount(config: DockConfig): number {
+/** A position in dock-local feet: x along the length (from shore), y across. */
+export interface PlacementFt {
+  xFt: number;
+  yFt: number;
+}
+
+/**
+ * Suggested float positions for a floating dock (§3.1). Distributes the
+ * engine's float count across one or two rows (two when wider than ~6 ft),
+ * spaced along the length. This is the single source of placement geometry —
+ * the blueprint generator renders these rather than inventing its own.
+ */
+export function suggestedFloatLayout(config: DockConfig): PlacementFt[] {
+  if (config.dockType !== "floating") return [];
+  const n = floatCount(config);
+  if (n <= 0) return [];
+  const { lengthFt, widthFt } = config.overall;
+  const rows = widthFt > FLOAT_PLACEMENT.twoRowsAboveWidthFt ? 2 : 1;
+  const cols = Math.ceil(n / rows);
+  const positions: PlacementFt[] = [];
+  let placed = 0;
+  for (let r = 0; r < rows && placed < n; r++) {
+    const yFt = round((widthFt * (r + 1)) / (rows + 1));
+    for (let c = 0; c < cols && placed < n; c++) {
+      const xFt = round((lengthFt * (c + 0.5)) / cols);
+      positions.push({ xFt, yFt });
+      placed++;
+    }
+  }
+  return positions;
+}
+
+/**
+ * Suggested pile positions for a fixed dock: support lines spaced by the joist
+ * span, with 2 piles per bent (3 when wider than ~6 ft). Single source of
+ * placement geometry for both the count and the blueprint.
+ */
+export function suggestedPileLayout(config: DockConfig): PlacementFt[] {
   if (config.dockType === "floating" || config.dockType === "suspension") {
-    return 0;
+    return [];
   }
   const { lengthFt, widthFt } = config.overall;
   const span = maxJoistSpanFt(config);
-  // Bays along length, one row of bents per support line, 2 piles per bent.
   const supportLines = Math.max(2, Math.ceil(lengthFt / span) + 1);
   const pilesPerLine = widthFt > FLOAT_PLACEMENT.twoRowsAboveWidthFt ? 3 : 2;
-  return supportLines * pilesPerLine;
+  const positions: PlacementFt[] = [];
+  for (let i = 0; i < supportLines; i++) {
+    const xFt = round((lengthFt * i) / (supportLines - 1));
+    for (let p = 0; p < pilesPerLine; p++) {
+      const yFt = round((widthFt * p) / (pilesPerLine - 1));
+      positions.push({ xFt, yFt });
+    }
+  }
+  return positions;
+}
+
+/** Suggested piling count for fixed docks (§3.2/§3.3 bays from joist span). */
+export function pilingCount(config: DockConfig): number {
+  return suggestedPileLayout(config).length;
 }
 
 /** Suggested cleat count from edge perimeter spacing (§3.5). */

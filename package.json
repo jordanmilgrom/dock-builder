@@ -1,0 +1,23 @@
+{
+  "name": "dock-configurator-engines",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Headless, fully-tested engines for the Dock Configurator SaaS (Phase 0): validation, pricing, and geometry/derived-metrics over a single dock-config JSON.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

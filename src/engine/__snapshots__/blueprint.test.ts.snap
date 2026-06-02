@@ -1,0 +1,1395 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`blueprint — render snapshots per view > end 1`] = `
+{
+  "height": 480,
+  "id": "end_elevation",
+  "shapes": [
+    {
+      "h": 497.54,
+      "kind": "rect",
+      "style": {
+        "fill": "#e0f2fe",
+        "stroke": "none",
+      },
+      "w": 800,
+      "x": 0,
+      "y": -17.54000000000002,
+    },
+    {
+      "a": {
+        "x": 0,
+        "y": -17.54000000000002,
+      },
+      "b": {
+        "x": 800,
+        "y": -17.54000000000002,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#0284c7",
+        "strokeWidth": 1.5,
+      },
+    },
+    {
+      "at": {
+        "x": 6,
+        "y": -21.54000000000002,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#0284c7",
+        "fontSize": 11,
+      },
+      "text": "waterline",
+    },
+    {
+      "a": {
+        "x": 0,
+        "y": 424.1,
+      },
+      "b": {
+        "x": 800,
+        "y": 424.1,
+      },
+      "kind": "line",
+      "style": {
+        "dashed": true,
+        "stroke": "#a8a29e",
+      },
+    },
+    {
+      "h": 98.10000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 66.9,
+      "x": 366.55,
+      "y": -76.4,
+    },
+    {
+      "h": 22.099999999999994,
+      "kind": "rect",
+      "style": {
+        "fill": "#f5e6c8",
+        "stroke": "#1f2937",
+        "strokeWidth": 1.5,
+      },
+      "w": 200.79999999999995,
+      "x": 299.6,
+      "y": -98.5,
+    },
+    {
+      "a": {
+        "x": 516.4,
+        "y": -76.4,
+      },
+      "b": {
+        "x": 516.4,
+        "y": -17.54000000000002,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 512.4,
+        "y": -76.4,
+      },
+      "b": {
+        "x": 520.4,
+        "y": -76.4,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 512.4,
+        "y": -17.54000000000002,
+      },
+      "b": {
+        "x": 520.4,
+        "y": -17.54000000000002,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "at": {
+        "x": 522.4,
+        "y": -46.97000000000001,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#6b7280",
+        "fontSize": 11,
+      },
+      "text": "freeboard 9.6 in",
+    },
+    {
+      "a": {
+        "x": 299.6,
+        "y": 444.1,
+      },
+      "b": {
+        "x": 500.4,
+        "y": 444.1,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 299.6,
+        "y": 440.1,
+      },
+      "b": {
+        "x": 299.6,
+        "y": 448.1,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 500.4,
+        "y": 440.1,
+      },
+      "b": {
+        "x": 500.4,
+        "y": 448.1,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "at": {
+        "x": 400,
+        "y": 439.1,
+      },
+      "kind": "text",
+      "style": {
+        "align": "middle",
+        "fill": "#6b7280",
+        "fontSize": 11,
+      },
+      "text": "6 ft",
+    },
+  ],
+  "title": "Elevation — end (schematic, V exaggerated)",
+  "width": 800,
+}
+`;
+
+exports[`blueprint — render snapshots per view > fixed plan 1`] = `
+{
+  "height": 480,
+  "id": "plan",
+  "shapes": [
+    {
+      "h": 480,
+      "kind": "rect",
+      "style": {
+        "fill": "#e0f2fe",
+        "stroke": "none",
+      },
+      "w": 800,
+      "x": 0,
+      "y": 0,
+    },
+    {
+      "h": 480,
+      "kind": "rect",
+      "style": {
+        "fill": "#a8a29e",
+        "opacity": 0.5,
+        "stroke": "none",
+      },
+      "w": 132.4,
+      "x": 0,
+      "y": 0,
+    },
+    {
+      "at": {
+        "x": 8,
+        "y": 20,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#1f2937",
+        "fontSize": 11,
+        "fontWeight": "bold",
+      },
+      "text": "SHORE",
+    },
+    {
+      "h": 191.20000000000002,
+      "kind": "rect",
+      "style": {
+        "fill": "#f5e6c8",
+        "stroke": "#1f2937",
+        "strokeWidth": 1.5,
+      },
+      "w": 611.6,
+      "x": 132.4,
+      "y": 144.4,
+    },
+    {
+      "c": {
+        "x": 132.4,
+        "y": 144.4,
+      },
+      "kind": "circle",
+      "r": 4,
+      "style": {
+        "fill": "#94a3b8",
+        "stroke": "#334155",
+      },
+    },
+    {
+      "c": {
+        "x": 132.4,
+        "y": 335.6,
+      },
+      "kind": "circle",
+      "r": 4,
+      "style": {
+        "fill": "#94a3b8",
+        "stroke": "#334155",
+      },
+    },
+    {
+      "c": {
+        "x": 438.2,
+        "y": 144.4,
+      },
+      "kind": "circle",
+      "r": 4,
+      "style": {
+        "fill": "#94a3b8",
+        "stroke": "#334155",
+      },
+    },
+    {
+      "c": {
+        "x": 438.2,
+        "y": 335.6,
+      },
+      "kind": "circle",
+      "r": 4,
+      "style": {
+        "fill": "#94a3b8",
+        "stroke": "#334155",
+      },
+    },
+    {
+      "c": {
+        "x": 744,
+        "y": 144.4,
+      },
+      "kind": "circle",
+      "r": 4,
+      "style": {
+        "fill": "#94a3b8",
+        "stroke": "#334155",
+      },
+    },
+    {
+      "c": {
+        "x": 744,
+        "y": 335.6,
+      },
+      "kind": "circle",
+      "r": 4,
+      "style": {
+        "fill": "#94a3b8",
+        "stroke": "#334155",
+      },
+    },
+    {
+      "c": {
+        "x": 285.3,
+        "y": 144.4,
+      },
+      "kind": "circle",
+      "r": 3,
+      "style": {
+        "fill": "#b45309",
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "c": {
+        "x": 591.1,
+        "y": 335.6,
+      },
+      "kind": "circle",
+      "r": 3,
+      "style": {
+        "fill": "#b45309",
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "a": {
+        "x": 132.4,
+        "y": 363.6,
+      },
+      "b": {
+        "x": 744,
+        "y": 363.6,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 132.4,
+        "y": 359.6,
+      },
+      "b": {
+        "x": 132.4,
+        "y": 367.6,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 744,
+        "y": 359.6,
+      },
+      "b": {
+        "x": 744,
+        "y": 367.6,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "at": {
+        "x": 438.2,
+        "y": 358.6,
+      },
+      "kind": "text",
+      "style": {
+        "align": "middle",
+        "fill": "#6b7280",
+        "fontSize": 11,
+      },
+      "text": "16 ft",
+    },
+    {
+      "a": {
+        "x": 766,
+        "y": 144.4,
+      },
+      "b": {
+        "x": 766,
+        "y": 335.6,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 762,
+        "y": 144.4,
+      },
+      "b": {
+        "x": 770,
+        "y": 144.4,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 762,
+        "y": 335.6,
+      },
+      "b": {
+        "x": 770,
+        "y": 335.6,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "at": {
+        "x": 772,
+        "y": 240,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#6b7280",
+        "fontSize": 11,
+      },
+      "text": "5 ft",
+    },
+    {
+      "a": {
+        "x": 760,
+        "y": 56,
+      },
+      "b": {
+        "x": 760,
+        "y": 24,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#1f2937",
+        "strokeWidth": 1.5,
+      },
+    },
+    {
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 760,
+          "y": 20,
+        },
+        {
+          "x": 755,
+          "y": 32,
+        },
+        {
+          "x": 765,
+          "y": 32,
+        },
+      ],
+      "style": {
+        "fill": "#1f2937",
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "at": {
+        "x": 760,
+        "y": 70,
+      },
+      "kind": "text",
+      "style": {
+        "align": "middle",
+        "fill": "#1f2937",
+        "fontSize": 11,
+        "fontWeight": "bold",
+      },
+      "text": "N",
+    },
+  ],
+  "title": "Plan — top view",
+  "width": 800,
+}
+`;
+
+exports[`blueprint — render snapshots per view > isometric 1`] = `
+{
+  "height": 480,
+  "id": "isometric",
+  "shapes": [
+    {
+      "h": 480,
+      "kind": "rect",
+      "style": {
+        "fill": "#e0f2fe",
+        "opacity": 0.4,
+        "stroke": "none",
+      },
+      "w": 800,
+      "x": 0,
+      "y": 0,
+    },
+    {
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 176.1,
+          "y": 56,
+        },
+        {
+          "x": 702.9,
+          "y": 360.1,
+        },
+        {
+          "x": 623.9,
+          "y": 405.8,
+        },
+        {
+          "x": 97.1,
+          "y": 101.6,
+        },
+      ],
+      "style": {
+        "fill": "#f5e6c8",
+        "stroke": "#1f2937",
+        "strokeWidth": 1.5,
+      },
+    },
+    {
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 176.1,
+          "y": 74.2,
+        },
+        {
+          "x": 702.9,
+          "y": 378.4,
+        },
+        {
+          "x": 702.9,
+          "y": 360.1,
+        },
+        {
+          "x": 176.1,
+          "y": 56,
+        },
+      ],
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.9,
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 702.9,
+          "y": 378.4,
+        },
+        {
+          "x": 623.9,
+          "y": 424,
+        },
+        {
+          "x": 623.9,
+          "y": 405.8,
+        },
+        {
+          "x": 702.9,
+          "y": 360.1,
+        },
+      ],
+      "style": {
+        "fill": "#475569",
+        "opacity": 0.8,
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "at": {
+        "x": 400,
+        "y": 464,
+      },
+      "kind": "text",
+      "style": {
+        "align": "middle",
+        "fill": "#1f2937",
+        "fontSize": 11,
+      },
+      "text": "40 ft × 6 ft · 240 ft²",
+    },
+  ],
+  "title": "Isometric (~30°)",
+  "width": 800,
+}
+`;
+
+exports[`blueprint — render snapshots per view > plan 1`] = `
+{
+  "height": 480,
+  "id": "plan",
+  "shapes": [
+    {
+      "h": 480,
+      "kind": "rect",
+      "style": {
+        "fill": "#e0f2fe",
+        "stroke": "none",
+      },
+      "w": 800,
+      "x": 0,
+      "y": 0,
+    },
+    {
+      "h": 480,
+      "kind": "rect",
+      "style": {
+        "fill": "#a8a29e",
+        "opacity": 0.5,
+        "stroke": "none",
+      },
+      "w": 83.8,
+      "x": 0,
+      "y": 0,
+    },
+    {
+      "at": {
+        "x": 8,
+        "y": 20,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#1f2937",
+        "fontSize": 11,
+        "fontWeight": "bold",
+      },
+      "text": "SHORE",
+    },
+    {
+      "h": 34.79999999999998,
+      "kind": "rect",
+      "style": {
+        "fill": "#fde9c8",
+        "stroke": "#1f2937",
+      },
+      "w": 312.7,
+      "x": 83.8,
+      "y": 222.6,
+    },
+    {
+      "at": {
+        "x": 240.15,
+        "y": 216.6,
+      },
+      "kind": "text",
+      "style": {
+        "align": "middle",
+        "fill": "#b45309",
+        "fontSize": 11,
+      },
+      "text": "gangway",
+    },
+    {
+      "h": 52.20000000000002,
+      "kind": "rect",
+      "style": {
+        "fill": "#f5e6c8",
+        "stroke": "#1f2937",
+        "strokeWidth": 1.5,
+      },
+      "w": 173.7,
+      "x": 396.5,
+      "y": 213.9,
+    },
+    {
+      "h": 52.20000000000002,
+      "kind": "rect",
+      "style": {
+        "fill": "#f5e6c8",
+        "stroke": "#1f2937",
+        "strokeWidth": 1.5,
+      },
+      "w": 173.7,
+      "x": 570.3,
+      "y": 213.9,
+    },
+    {
+      "a": {
+        "x": 570.3,
+        "y": 213.9,
+      },
+      "b": {
+        "x": 570.3,
+        "y": 266.1,
+      },
+      "kind": "line",
+      "style": {
+        "dashed": true,
+        "stroke": "#b45309",
+        "strokeWidth": 1.5,
+      },
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 400.84999999999997,
+      "y": 231.3,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 444.34999999999997,
+      "y": 231.3,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 487.75,
+      "y": 231.3,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 531.15,
+      "y": 231.3,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 574.65,
+      "y": 231.3,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 618.05,
+      "y": 231.3,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 661.4499999999999,
+      "y": 231.3,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 704.9499999999999,
+      "y": 231.3,
+    },
+    {
+      "c": {
+        "x": 454.4,
+        "y": 213.9,
+      },
+      "kind": "circle",
+      "r": 3,
+      "style": {
+        "fill": "#b45309",
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "c": {
+        "x": 570.3,
+        "y": 266.1,
+      },
+      "kind": "circle",
+      "r": 3,
+      "style": {
+        "fill": "#b45309",
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "c": {
+        "x": 686.1,
+        "y": 213.9,
+      },
+      "kind": "circle",
+      "r": 3,
+      "style": {
+        "fill": "#b45309",
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "at": {
+        "x": 740,
+        "y": 280.1,
+      },
+      "kind": "text",
+      "style": {
+        "align": "end",
+        "fill": "#b45309",
+        "fontSize": 11,
+      },
+      "text": "ladder",
+    },
+    {
+      "a": {
+        "x": 396.5,
+        "y": 294.1,
+      },
+      "b": {
+        "x": 744,
+        "y": 294.1,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 396.5,
+        "y": 290.1,
+      },
+      "b": {
+        "x": 396.5,
+        "y": 298.1,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 744,
+        "y": 290.1,
+      },
+      "b": {
+        "x": 744,
+        "y": 298.1,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "at": {
+        "x": 570.25,
+        "y": 289.1,
+      },
+      "kind": "text",
+      "style": {
+        "align": "middle",
+        "fill": "#6b7280",
+        "fontSize": 11,
+      },
+      "text": "40 ft",
+    },
+    {
+      "a": {
+        "x": 766,
+        "y": 213.9,
+      },
+      "b": {
+        "x": 766,
+        "y": 266.1,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 762,
+        "y": 213.9,
+      },
+      "b": {
+        "x": 770,
+        "y": 213.9,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 762,
+        "y": 266.1,
+      },
+      "b": {
+        "x": 770,
+        "y": 266.1,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "at": {
+        "x": 772,
+        "y": 240,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#6b7280",
+        "fontSize": 11,
+      },
+      "text": "6 ft",
+    },
+    {
+      "a": {
+        "x": 760,
+        "y": 56,
+      },
+      "b": {
+        "x": 760,
+        "y": 24,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#1f2937",
+        "strokeWidth": 1.5,
+      },
+    },
+    {
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 760,
+          "y": 20,
+        },
+        {
+          "x": 755,
+          "y": 32,
+        },
+        {
+          "x": 765,
+          "y": 32,
+        },
+      ],
+      "style": {
+        "fill": "#1f2937",
+        "stroke": "#1f2937",
+      },
+    },
+    {
+      "at": {
+        "x": 760,
+        "y": 70,
+      },
+      "kind": "text",
+      "style": {
+        "align": "middle",
+        "fill": "#1f2937",
+        "fontSize": 11,
+        "fontWeight": "bold",
+      },
+      "text": "N",
+    },
+  ],
+  "title": "Plan — top view",
+  "width": 800,
+}
+`;
+
+exports[`blueprint — render snapshots per view > side 1`] = `
+{
+  "height": 480,
+  "id": "side_elevation",
+  "shapes": [
+    {
+      "h": 169.51999999999998,
+      "kind": "rect",
+      "style": {
+        "fill": "#e0f2fe",
+        "stroke": "none",
+      },
+      "w": 800,
+      "x": 0,
+      "y": 310.48,
+    },
+    {
+      "a": {
+        "x": 0,
+        "y": 310.48,
+      },
+      "b": {
+        "x": 800,
+        "y": 310.48,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#0284c7",
+        "strokeWidth": 1.5,
+      },
+    },
+    {
+      "at": {
+        "x": 6,
+        "y": 306.48,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#0284c7",
+        "fontSize": 11,
+      },
+      "text": "waterline (low)",
+    },
+    {
+      "a": {
+        "x": 0,
+        "y": 424,
+      },
+      "b": {
+        "x": 800,
+        "y": 424,
+      },
+      "kind": "line",
+      "style": {
+        "dashed": true,
+        "stroke": "#a8a29e",
+        "strokeWidth": 1.5,
+      },
+    },
+    {
+      "at": {
+        "x": 6,
+        "y": 438,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#a8a29e",
+        "fontSize": 11,
+      },
+      "text": "bottom (−6 ft)",
+    },
+    {
+      "h": 25.30000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 34.4,
+      "x": 387.1,
+      "y": 295.3,
+    },
+    {
+      "h": 25.30000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 34.4,
+      "x": 430.1,
+      "y": 295.3,
+    },
+    {
+      "h": 25.30000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 34.4,
+      "x": 473.1,
+      "y": 295.3,
+    },
+    {
+      "h": 25.30000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 34.4,
+      "x": 516.0999999999999,
+      "y": 295.3,
+    },
+    {
+      "h": 25.30000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 34.4,
+      "x": 559.0999999999999,
+      "y": 295.3,
+    },
+    {
+      "h": 25.30000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 34.4,
+      "x": 602.0999999999999,
+      "y": 295.3,
+    },
+    {
+      "h": 25.30000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 34.4,
+      "x": 645.0999999999999,
+      "y": 295.3,
+    },
+    {
+      "h": 25.30000000000001,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "stroke": "#475569",
+      },
+      "w": 34.4,
+      "x": 688.0999999999999,
+      "y": 295.3,
+    },
+    {
+      "h": 5.600000000000023,
+      "kind": "rect",
+      "style": {
+        "fill": "#f5e6c8",
+        "stroke": "#1f2937",
+        "strokeWidth": 1.5,
+      },
+      "w": 343.99999999999994,
+      "x": 382.8,
+      "y": 289.7,
+    },
+    {
+      "a": {
+        "x": 742.8,
+        "y": 295.3,
+      },
+      "b": {
+        "x": 742.8,
+        "y": 310.48,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 738.8,
+        "y": 295.3,
+      },
+      "b": {
+        "x": 746.8,
+        "y": 295.3,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 738.8,
+        "y": 310.48,
+      },
+      "b": {
+        "x": 746.8,
+        "y": 310.48,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "at": {
+        "x": 748.8,
+        "y": 302.89,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#6b7280",
+        "fontSize": 11,
+      },
+      "text": "freeboard 9.6 in",
+    },
+    {
+      "a": {
+        "x": 56,
+        "y": 253.7,
+      },
+      "b": {
+        "x": 382.8,
+        "y": 289.7,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#b45309",
+        "strokeWidth": 2,
+      },
+    },
+    {
+      "at": {
+        "x": 219.4,
+        "y": 265.7,
+      },
+      "kind": "text",
+      "style": {
+        "align": "middle",
+        "fill": "#b45309",
+        "fontSize": 11,
+      },
+      "text": "gangway 36 ft @ 8.3%",
+    },
+    {
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 0,
+          "y": 310.48,
+        },
+        {
+          "x": 56,
+          "y": 310.48,
+        },
+        {
+          "x": 56,
+          "y": 253.7,
+        },
+        {
+          "x": 0,
+          "y": 253.7,
+        },
+      ],
+      "style": {
+        "fill": "#a8a29e",
+        "opacity": 0.5,
+        "stroke": "none",
+      },
+    },
+    {
+      "a": {
+        "x": 42,
+        "y": 310.5,
+      },
+      "b": {
+        "x": 42,
+        "y": 253.7,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 38,
+        "y": 310.5,
+      },
+      "b": {
+        "x": 46,
+        "y": 310.5,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "a": {
+        "x": 38,
+        "y": 253.7,
+      },
+      "b": {
+        "x": 46,
+        "y": 253.7,
+      },
+      "kind": "line",
+      "style": {
+        "stroke": "#6b7280",
+      },
+    },
+    {
+      "at": {
+        "x": 48,
+        "y": 282.1,
+      },
+      "kind": "text",
+      "style": {
+        "align": "start",
+        "fill": "#6b7280",
+        "fontSize": 11,
+      },
+      "text": "rise 3 ft",
+    },
+  ],
+  "title": "Elevation — side (schematic, V exaggerated)",
+  "width": 800,
+}
+`;

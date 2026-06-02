@@ -17,6 +17,7 @@ import {
   MAX_SECTION,
   MIN_WIDTH_FT,
   RECOMMEND,
+  SOFT_BOTTOMS,
   SUBMERGENCE,
 } from "./constants.js";
 import { CURRENT_SCHEMA_VERSION } from "./types.js";
@@ -285,6 +286,37 @@ export function validationEngine(config: DockConfig): ValidationResult {
     warn(
       "fixed_dock_level_swing",
       `Seasonal level swing of ${config.site.seasonalFluctuationFt} ft is large for a fixed dock — freeboard will vary; consider floating.`,
+    );
+  }
+
+  // Declared dock type vs. §2.1 site rules (advisory — never blocks). Catches
+  // e.g. a pile dock pinned onto a soft/rock bottom or into deep water.
+  const fixedType =
+    config.dockType === "pile" ||
+    config.dockType === "pipe" ||
+    config.dockType === "crib";
+  if (fixedType && SOFT_BOTTOMS.has(config.site.bottom)) {
+    warn(
+      "type_contradicts_bottom",
+      `A ${config.dockType} dock on a ${config.site.bottom} bottom is risky — soft/loose bottoms let piles settle or heave; §2.1 favors a floating dock here.`,
+      "dockType",
+    );
+  }
+  if (fixedType && config.site.bottom === "rock") {
+    warn(
+      "type_contradicts_bottom",
+      "Piles can't be driven into rock — consider a floating or cantilever dock (§2.1).",
+      "dockType",
+    );
+  }
+  if (
+    fixedType &&
+    config.site.depthAtEndLowWaterFt > RECOMMEND.pileMaxPracticalDepthFt
+  ) {
+    warn(
+      "type_contradicts_depth",
+      `Water deeper than ${RECOMMEND.pileMaxPracticalDepthFt} ft makes a ${config.dockType} dock costly — §2.1 favors floating in deep water.`,
+      "dockType",
     );
   }
   if (config.site.seasonalIce && config.dockType === "crib") {

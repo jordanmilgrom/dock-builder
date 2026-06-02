@@ -22,10 +22,23 @@ export {
   parseSlopeRatio,
   pilingCount,
   suggestedCleatCount,
+  suggestedFloatLayout,
+  suggestedPileLayout,
   estWeightLbs,
 } from "./geometry.js";
+export type { PlacementFt } from "./geometry.js";
 export { recommendDockType } from "./recommendation.js";
 export type { Recommendation } from "./recommendation.js";
 export { validationEngine } from "./validation.js";
 export { pricingEngine, billableQuantities } from "./pricing.js";
 export type { BillableQuantities } from "./pricing.js";
+export { generateStartingDesign, STARTER_FLOAT_SKU } from "./starter.js";
+export type { StarterOptions } from "./starter.js";
+export {
+  planView,
+  sideElevation,
+  endElevation,
+  isometricView,
+  allViews,
+} from "./blueprint.js";
+export type { Drawing, Shape, Pt, DrawStyle, ViewId } from "./blueprint.js";

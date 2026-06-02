@@ -187,3 +187,31 @@ describe("validationEngine — site & accessory advisories", () => {
     expect(codes(validationEngine(c).warnings)).toContain("electrical_gfci");
   });
 });
+
+describe("validationEngine — declared type vs. §2.1 site rules (advisory)", () => {
+  it("warns about a pile dock on a soft bottom (does not error)", () => {
+    const c = clone(compliantFixedConfig);
+    c.site.bottom = "mud";
+    const result = validationEngine(c);
+    expect(codes(result.warnings)).toContain("type_contradicts_bottom");
+    expect(result.ok).toBe(true);
+  });
+
+  it("warns that piles can't be driven into rock", () => {
+    const c = clone(compliantFixedConfig);
+    c.site.bottom = "rock";
+    expect(codes(validationEngine(c).warnings)).toContain("type_contradicts_bottom");
+  });
+
+  it("warns about a fixed dock in deep water", () => {
+    const c = clone(compliantFixedConfig);
+    c.site.depthAtEndLowWaterFt = 12;
+    expect(codes(validationEngine(c).warnings)).toContain("type_contradicts_depth");
+  });
+
+  it("stays silent for a pile dock on a firm bottom at sensible depth", () => {
+    const result = validationEngine(compliantFixedConfig);
+    expect(codes(result.warnings)).not.toContain("type_contradicts_bottom");
+    expect(codes(result.warnings)).not.toContain("type_contradicts_depth");
+  });
+});

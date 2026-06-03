@@ -13,7 +13,20 @@ interface Row {
   isCurrent: boolean;
 }
 
-export default function RevisionList({ designId, revisions }: { designId: string; revisions: Row[] }) {
+function authorLabel(role: string, audience: "customer" | "builder"): string {
+  if (audience === "customer") return role === "builder" ? "Builder update" : "Your edit";
+  return role === "builder" ? "Builder" : "Customer";
+}
+
+export default function RevisionList({
+  designId,
+  revisions,
+  audience = "customer",
+}: {
+  designId: string;
+  revisions: Row[];
+  audience?: "customer" | "builder";
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<number | null>(null);
 
@@ -44,7 +57,7 @@ export default function RevisionList({ designId, revisions }: { designId: string
             </p>
             <p className="text-slate-600">{r.changeSummary}</p>
             <p className="text-xs text-slate-400">
-              {r.authorRole} · {new Date(r.createdAt).toLocaleString("en-US")}
+              {authorLabel(r.authorRole, audience)} · {new Date(r.createdAt).toLocaleString("en-US")}
               {r.total != null && <> · {fmt(r.total, r.currency)}</>}
             </p>
           </div>

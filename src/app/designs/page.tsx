@@ -1,4 +1,6 @@
 import Link from "next/link";
+import CustomerStatusBadge from "@/components/CustomerStatusBadge";
+import { deriveStatus } from "@/lib/leadStatus";
 import { getCustomerSession } from "@/lib/session";
 import { getTenantContext } from "@/lib/tenant";
 import { DRAFT_CAP } from "@/lib/versioning";
@@ -10,12 +12,15 @@ export default async function DesignsPage() {
   const session = ctx ? getCustomerSession(ctx.meta.id) : null;
   const designs = ctx && session ? await ctx.scope.listDesignsByCustomer(session.customerId) : [];
   const drafts = designs.filter((d) => d.status === "draft").length;
+  const threshold = ctx?.meta.abandonedThresholdDays ?? 3;
 
   const rows = await Promise.all(
-    designs.map(async (d) => ({
-      design: d,
-      rev: ctx ? await ctx.scope.getRevision(d.currentRevisionId) : undefined,
-    })),
+    designs.map(async (d) => {
+      const rev = ctx ? await ctx.scope.getRevision(d.currentRevisionId) : undefined;
+      const lead = ctx ? await ctx.scope.findLeadByDesign(d.id) : undefined;
+      const status = lead ? deriveStatus(lead.status, lead.lastActivityAt, threshold) : null;
+      return { design: d, rev, status };
+    }),
   );
 
   return (
@@ -34,10 +39,13 @@ export default async function DesignsPage() {
         </p>
       ) : (
         <ul className="space-y-2">
-          {rows.map(({ design: d, rev }) => (
+          {rows.map(({ design: d, rev, status }) => (
             <li key={d.id} className="flex items-center justify-between rounded border border-slate-200 bg-white p-3 text-sm">
               <div>
-                <Link href={`/design/${d.id}`} className="font-medium text-brand hover:underline">{d.name}</Link>
+                <div className="flex items-center gap-2">
+                  <Link href={`/design/${d.id}`} className="font-medium text-brand hover:underline">{d.name}</Link>
+                  <CustomerStatusBadge status={status} />
+                </div>
                 <p className="text-xs text-slate-500">
                   {rev?.config.dockType} · v{rev?.version ?? 0} · updated {new Date(d.updatedAt).toLocaleDateString("en-US")}
                 </p>

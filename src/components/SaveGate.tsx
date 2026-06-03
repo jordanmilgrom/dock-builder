@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { devBranding } from "@/lib/seed";
 
 export interface CaptureResult {
   email: string;
@@ -16,11 +15,13 @@ export interface CaptureResult {
 export default function SaveGate({
   designId,
   source,
+  brandName,
   onCancel,
   onCaptured,
 }: {
   designId: string;
   source: "save_gate" | "price_gate";
+  brandName: string;
   onCancel: () => void;
   onCaptured: (r: CaptureResult) => void;
 }) {
@@ -69,7 +70,7 @@ export default function SaveGate({
         />
         <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
           <input type="checkbox" className="mt-0.5" checked={optedIn} onChange={(e) => setOptedIn(e.target.checked)} />
-          <span>I&apos;d like {devBranding.name} to contact me about my dock design.</span>
+          <span>I&apos;d like {brandName} to contact me about my dock design.</span>
         </label>
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         <div className="mt-4 flex justify-end gap-2">

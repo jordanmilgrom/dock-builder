@@ -10,8 +10,8 @@ import {
   type DockType,
   type FrameMaterial,
   type JoistSize,
+  type PricingProfile,
 } from "@/engine";
-import { pricingProfileFor } from "@/lib/seed";
 import ViewsPanel from "./ViewsPanel";
 import SaveGate, { type CaptureResult } from "./SaveGate";
 
@@ -33,11 +33,16 @@ export default function Configurator({
   initialConfig,
   initialVersion,
   emailCaptured,
+  profiles,
+  brandName,
 }: {
   designId: string;
   initialConfig: DockConfig;
   initialVersion: number;
   emailCaptured: boolean;
+  /** This tenant's pricing profile per dock type (cloned from its catalog). */
+  profiles: Partial<Record<DockType, PricingProfile>>;
+  brandName: string;
 }) {
   const [config, setConfig] = useState<DockConfig>(initialConfig);
   const [version, setVersion] = useState(initialVersion);
@@ -49,7 +54,10 @@ export default function Configurator({
   const [magicLink, setMagicLink] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  const profile = useMemo(() => pricingProfileFor(config.dockType), [config.dockType]);
+  const profile = useMemo(
+    () => profiles[config.dockType] ?? profiles[initialConfig.dockType]!,
+    [config.dockType, profiles, initialConfig.dockType],
+  );
   const validation = useMemo(() => validationEngine(config), [config]);
   const estimate = useMemo(
     () => pricingEngine(config, profile, { deliveryDistanceMiles: 30 }),
@@ -235,7 +243,7 @@ export default function Configurator({
       </div>
 
       {gate && (
-        <SaveGate designId={designId} source="save_gate" onCancel={() => { setGate(null); setPending(null); }} onCaptured={onCaptured} />
+        <SaveGate designId={designId} source="save_gate" brandName={brandName} onCancel={() => { setGate(null); setPending(null); }} onCaptured={onCaptured} />
       )}
     </div>
   );

@@ -93,7 +93,7 @@ export async function signUpBuilder(
           deliveryBands: p.deliveryBands as unknown as object,
           minimumPrice: p.minimumPrice,
           markupPct: p.markupPct,
-          items: { create: p.items.map((it) => ({ key: it.key, unit: it.unit, unitPrice: it.unitPrice, ...(it.label ? { label: it.label } : {}) })) },
+          items: { create: p.items.map((it) => ({ tenantId, key: it.key, unit: it.unit, unitPrice: it.unitPrice, ...(it.label ? { label: it.label } : {}) })) },
         })),
       },
       floatProducts: { create: catalog.floatProducts.map((f) => ({ ...f })) },

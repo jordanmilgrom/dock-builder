@@ -13,6 +13,32 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NEXT_TELEMETRY_DISABLED: "1"
+      # Phase 2: tests, typecheck, and build all run against a real Postgres.
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/dock_test"
+      AUTH_SECRET: "ci-test-secret"
+      APP_DOMAIN: "app.com"
+      DEFAULT_TENANT_SLUG: "acme-docks"
+      STRIPE_SECRET_KEY: "sk_test_ci"
+      STRIPE_WEBHOOK_SECRET: "whsec_ci"
+      STRIPE_PRICE_STARTER: "price_starter"
+      STRIPE_PRICE_PRO: "price_pro"
+      STRIPE_PRICE_PREMIUM: "price_premium"
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dock_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -24,6 +50,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # `npm ci` runs `postinstall` (prisma generate); apply the schema explicitly.
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
 
       - name: Typecheck (engine + app)
         run: npm run typecheck

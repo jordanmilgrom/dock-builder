@@ -1,20 +1,23 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Configurator from "@/components/Configurator";
-import { getSession } from "@/lib/session";
-import * as store from "@/lib/store";
+import { getCustomerSession } from "@/lib/session";
+import { getTenantContext, loadProfiles } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
-export default function DesignPage({ params }: { params: { id: string } }) {
-  const session = getSession();
+export default async function DesignPage({ params }: { params: { id: string } }) {
+  const ctx = await getTenantContext();
+  if (!ctx) notFound();
+  const session = getCustomerSession(ctx.meta.id);
   if (!session) redirect("/");
-  const design = store.getDesign(params.id);
+  const design = await ctx.scope.getDesign(params.id);
   if (!design) notFound();
   if (design.customerId !== session.customerId) redirect("/");
-  const revision = store.getRevision(design.currentRevisionId);
+  const revision = await ctx.scope.getRevision(design.currentRevisionId);
   if (!revision) notFound();
-  const customer = store.getCustomer(design.customerId);
+  const customer = await ctx.scope.getCustomer(design.customerId);
+  const profiles = await loadProfiles(ctx.scope);
 
   return (
     <div className="space-y-4">
@@ -35,6 +38,8 @@ export default function DesignPage({ params }: { params: { id: string } }) {
         initialConfig={revision.config}
         initialVersion={revision.version}
         emailCaptured={Boolean(customer?.email)}
+        profiles={profiles}
+        brandName={ctx.meta.branding.name}
       />
     </div>
   );

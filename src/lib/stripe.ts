@@ -24,7 +24,7 @@ let _stripe: Stripe | null = null;
 export function stripe(): Stripe {
   if (!_stripe) {
     _stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_unset", {
-      apiVersion: "2024-12-18.acacia",
+      apiVersion: "2025-02-24.acacia",
     });
   }
   return _stripe;

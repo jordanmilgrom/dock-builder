@@ -5,8 +5,10 @@ import "server-only";
  * its tenantId from here — never from a hardcoded constant.
  */
 import { headers } from "next/headers";
+import type { DockType, PricingProfile } from "@/engine";
 import type { Entitlements, SubscriptionTier } from "./entitlements.js";
 import { prisma } from "./db.js";
+import { DOCK_TYPES } from "./seed.js";
 import { TENANT_SLUG_HEADER } from "./tenantRouting.js";
 import { createTenantScope, type TenantScope } from "./tenantScope.js";
 
@@ -54,6 +56,18 @@ export function requestTenantSlug(): string {
 /** The tenant for the current request, or null if the slug resolves to nothing. */
 export async function getTenantContext(): Promise<TenantContext | null> {
   return loadTenantBySlug(requestTenantSlug());
+}
+
+/** Pricing profile per dock type for the client configurator (live preview). */
+export async function loadProfiles(scope: TenantScope): Promise<Partial<Record<DockType, PricingProfile>>> {
+  const out: Partial<Record<DockType, PricingProfile>> = {};
+  await Promise.all(
+    DOCK_TYPES.map(async (dt) => {
+      const p = await scope.getPricingProfile(dt);
+      if (p) out[dt] = p;
+    }),
+  );
+  return out;
 }
 
 type TenantRow = NonNullable<

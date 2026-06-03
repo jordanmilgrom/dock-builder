@@ -62,6 +62,7 @@ model Tenant {
   revisions       Revision[]
   leads           Lead[]
   pricingProfiles PricingProfile[]
+  pricingItems    PricingItem[]
   floatProducts   FloatProduct[]
   deckingProducts DeckingProduct[]
   accessoryProducts AccessoryProduct[]
@@ -129,6 +130,8 @@ model PricingProfile {
 
 model PricingItem {
   id        String         @id @default(cuid())
+  tenantId  String // denormalized so the scope can filter items directly
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   profileId String
   profile   PricingProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   key       String
@@ -138,6 +141,7 @@ model PricingItem {
   enabled   Boolean        @default(true)
 
   @@index([profileId])
+  @@index([tenantId])
 }
 
 model FloatProduct {

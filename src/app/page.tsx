@@ -1,15 +1,17 @@
 import type { SiteConditions } from "@/engine";
 import QuestionnaireForm from "@/components/QuestionnaireForm";
-import { getSession } from "@/lib/session";
-import * as store from "@/lib/store";
+import { getCustomerSession } from "@/lib/session";
+import { getTenantContext } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const session = getSession();
-  const saved: SiteConditions | undefined = session
-    ? store.getCustomer(session.customerId)?.savedShoreline
-    : undefined;
+export default async function HomePage() {
+  const ctx = await getTenantContext();
+  let saved: SiteConditions | undefined;
+  if (ctx) {
+    const session = getCustomerSession(ctx.meta.id);
+    if (session) saved = (await ctx.scope.getCustomer(session.customerId))?.savedShoreline;
+  }
 
   return (
     <div className="space-y-6">

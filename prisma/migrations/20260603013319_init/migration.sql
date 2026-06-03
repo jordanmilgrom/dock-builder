@@ -66,6 +66,7 @@ CREATE TABLE "PricingProfile" (
 -- CreateTable
 CREATE TABLE "PricingItem" (
     "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
     "profileId" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "unit" TEXT NOT NULL,
@@ -198,6 +199,9 @@ CREATE UNIQUE INDEX "PricingProfile_tenantId_dockType_key" ON "PricingProfile"("
 CREATE INDEX "PricingItem_profileId_idx" ON "PricingItem"("profileId");
 
 -- CreateIndex
+CREATE INDEX "PricingItem_tenantId_idx" ON "PricingItem"("tenantId");
+
+-- CreateIndex
 CREATE INDEX "FloatProduct_tenantId_idx" ON "FloatProduct"("tenantId");
 
 -- CreateIndex
@@ -250,6 +254,9 @@ ALTER TABLE "Branding" ADD CONSTRAINT "Branding_tenantId_fkey" FOREIGN KEY ("ten
 
 -- AddForeignKey
 ALTER TABLE "PricingProfile" ADD CONSTRAINT "PricingProfile_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PricingItem" ADD CONSTRAINT "PricingItem_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PricingItem" ADD CONSTRAINT "PricingItem_profileId_fkey" FOREIGN KEY ("profileId") REFERENCES "PricingProfile"("id") ON DELETE CASCADE ON UPDATE CASCADE;

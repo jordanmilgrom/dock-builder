@@ -9,3 +9,9 @@
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }
+
+@layer components {
+  .inp {
+    @apply block w-full rounded border border-slate-300 px-2 py-1 text-sm;
+  }
+}

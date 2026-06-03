@@ -6,8 +6,7 @@ import {
   SESSION_MAX_AGE_SEC,
 } from "@/lib/auth";
 import { captureContact } from "@/lib/designService";
-import { getSession } from "@/lib/session";
-import * as store from "@/lib/store";
+import { requireCustomerDesign } from "@/lib/routeAuth";
 import type { ConsentSource } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -27,24 +26,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!body?.email || !EMAIL_RE.test(body.email)) {
     return NextResponse.json({ error: "invalid_email" }, { status: 400 });
   }
-  const session = getSession();
-  if (!session) return NextResponse.json({ error: "no_session" }, { status: 401 });
-
-  const design = store.getDesign(body.designId);
-  if (!design || design.customerId !== session.customerId) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const auth = await requireCustomerDesign(body.designId);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.status === 401 ? "no_session" : "forbidden" }, { status: auth.status });
   }
 
-  captureContact(session.customerId, body.designId, body.email, !!body.optedIn, body.source);
+  await captureContact(auth.ctx.scope, auth.customerId, body.designId, body.email, !!body.optedIn, body.source);
 
-  // Dev-grade magic link (no SMTP in Phase 1): surface it to the caller so the
-  // customer can "come back" to their drafts.
-  const origin = req.nextUrl.origin;
-  const magicLink = `${origin}/auth/verify?token=${encodeURIComponent(createMagicToken(body.email))}`;
+  // Dev-grade magic link (no SMTP): surface it so the customer can "come back".
+  const magicLink = `${req.nextUrl.origin}/auth/verify?token=${encodeURIComponent(
+    createMagicToken(body.email, { kind: "customer", tenantId: auth.ctx.meta.id }),
+  )}`;
 
   const res = NextResponse.json({ ok: true, magicLink });
-  // Refresh the session cookie now that it carries an email.
-  res.cookies.set(SESSION_COOKIE, createSessionCookieValue(session.customerId, body.email), {
+  res.cookies.set(SESSION_COOKIE, createSessionCookieValue(auth.customerId, body.email, auth.ctx.meta.id), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

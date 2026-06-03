@@ -291,7 +291,7 @@ export function createTenantScope(tenantId: string): TenantScope {
           ...(it.label ? { label: it.label } : {}),
         })),
         ...(p.labor ? { labor: p.labor as EnginePricingProfile["labor"] } : {}),
-        ...(p.deliveryBands ? { deliveryBands: p.deliveryBands as EnginePricingProfile["deliveryBands"] } : {}),
+        ...(p.deliveryBands ? { deliveryBands: p.deliveryBands as unknown as EnginePricingProfile["deliveryBands"] } : {}),
         ...(p.minimumPrice != null ? { minimumPrice: p.minimumPrice } : {}),
         ...(p.markupPct != null ? { markupPct: p.markupPct } : {}),
       };

@@ -1,31 +1,30 @@
 /**
- * Builder notification delivery (§8 Phase 3 item 5).
+ * Builder notification delivery (§8 Phase 3 item 5; Phase 5 channels).
  *
- * v1 ships ONE channel — email — behind a `notifyBuilder(channel, payload)`
- * interface so Phase 5 can add SMS / webhook without touching callers. Transport
- * selection:
- *   - tests/dev → `logTransport` (records calls in memory; assertable);
- *   - production with `SMTP_URL` set → `smtpTransport` (integration point);
- *   - production without `SMTP_URL` → `noopTransport`.
- *
- * No heavy mail-vendor SDK is pulled in; if `SMTP_URL` is unset, sending no-ops.
- * Entitlement gating (abandoned notifications are Pro+) lives here as a pure
- * predicate so the emit layer and tests share one rule.
+ * `notifyBuilder(channel, payload)` fans out across channels behind one
+ * interface. Channels: email (Phase 3), sms (Twilio) + slack (Phase 5). Transport
+ * selection: tests/dev → `logTransport` (assertable); production wires SMTP /
+ * Twilio / Slack from env + tenant config, and no-ops when unconfigured. No
+ * vendor SDKs — direct HTTPS. Entitlement gating lives here as pure predicates.
  */
 
 import type { Entitlements } from "./entitlements.js";
 
-export type NotifyChannel = "email"; // Phase 5: "sms" | "webhook"
+export type NotifyChannel = "email" | "sms" | "slack";
 export type NotificationType = "new_lead" | "abandoned_lead";
 
 export interface NotifyPayload {
   tenantId: string;
   type: NotificationType;
-  /** Recipient builder address. */
+  /** Email recipient (email channel). */
   to: string;
   subject: string;
   body: string;
   leadId?: string;
+  /** SMS recipient (sms channel). */
+  smsTo?: string;
+  /** Slack incoming-webhook URL (slack channel). */
+  slackWebhookUrl?: string;
 }
 
 export interface NotifyResult {
@@ -61,42 +60,133 @@ const noopTransport: Transport = {
   },
 };
 
-/**
- * Production SMTP. Deliberately dependency-free: the real send is wired here in
- * ops (e.g. nodemailer against SMTP_URL). Without SMTP_URL this is never
- * selected; with it, this is the single seam to implement.
- */
+/** Production SMTP seam (dependency-free; ops wires SMTP_URL). */
 const smtpTransport: Transport = {
   name: "smtp",
   async send(channel, payload) {
-    // Integration point — ops wires SMTP_URL to a client here. We never block
-    // the request on email; failures are swallowed so the CRM flow proceeds.
     // eslint-disable-next-line no-console
     console.info(`[notify:smtp] ${channel} → ${payload.to} (${payload.type})`);
     return true;
   },
 };
 
-/** Resolve the active transport from the environment. */
+/** Twilio SMS via direct HTTPS POST to the Messages API (no SDK). */
+export function makeTwilioTransport(opts: { fetchImpl?: typeof fetch; env?: NodeJS.ProcessEnv } = {}): Transport {
+  const env = opts.env ?? process.env;
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  return {
+    name: "twilio",
+    async send(_channel, payload) {
+      const sid = env.TWILIO_ACCOUNT_SID;
+      const token = env.TWILIO_AUTH_TOKEN;
+      const from = env.TWILIO_FROM_NUMBER;
+      if (!sid || !token || !from || !payload.smsTo) return false; // no-op when unconfigured
+      const auth = Buffer.from(`${sid}:${token}`).toString("base64");
+      const form = new URLSearchParams({ To: payload.smsTo, From: from, Body: `${payload.subject}: ${payload.body}` });
+      const res = await fetchImpl(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+        method: "POST",
+        headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString(),
+      });
+      return res.ok;
+    },
+  };
+}
+
+/** Slack incoming webhook via direct HTTPS POST. */
+export function makeSlackTransport(opts: { fetchImpl?: typeof fetch } = {}): Transport {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  return {
+    name: "slack",
+    async send(_channel, payload) {
+      if (!payload.slackWebhookUrl) return false; // no-op when unconfigured
+      const res = await fetchImpl(payload.slackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: `*${payload.subject}*\n${payload.body}`,
+          blocks: [{ type: "section", text: { type: "mrkdwn", text: `*${payload.subject}*\n${payload.body}` } }],
+        }),
+      });
+      return res.ok;
+    },
+  };
+}
+
+/** Email transport for the current env (Phase 3 back-compat). */
 export function resolveTransport(env: NodeJS.ProcessEnv = process.env): Transport {
   if (env.NODE_ENV === "production") return env.SMTP_URL ? smtpTransport : noopTransport;
   return logTransport;
 }
 
-/**
- * Deliver a builder notification over a channel. The transport is injectable so
- * tests can pass `logTransport` explicitly; otherwise it is resolved from env.
- */
+/** Transport for a given channel in the current env. */
+export function resolveChannelTransport(channel: NotifyChannel, env: NodeJS.ProcessEnv = process.env): Transport {
+  if (env.NODE_ENV !== "production") return logTransport; // tests/dev: record everything
+  switch (channel) {
+    case "email":
+      return env.SMTP_URL ? smtpTransport : noopTransport;
+    case "sms":
+      return env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER
+        ? makeTwilioTransport({ env })
+        : noopTransport;
+    case "slack":
+      return makeSlackTransport(); // self-no-ops without a payload URL
+  }
+}
+
+/** Deliver a single notification over a channel (transport injectable for tests). */
 export async function notifyBuilder(
   channel: NotifyChannel,
   payload: NotifyPayload,
-  transport: Transport = resolveTransport(),
+  transport: Transport = resolveChannelTransport(channel),
 ): Promise<NotifyResult> {
   const delivered = await transport.send(channel, payload);
   return { channel, delivered, transport: transport.name };
 }
 
-/** Abandoned-lead notifications are gated on the Pro+ entitlement (§10 #2). */
+// ---- Entitlement gating (pure) ---------------------------------------------
+
 export function abandonedNotificationAllowed(entitlements: Pick<Entitlements, "abandonedFollowUp">): boolean {
   return entitlements.abandonedFollowUp === true;
+}
+export function smsAllowed(entitlements: Pick<Entitlements, "smsNotifications">): boolean {
+  return entitlements.smsNotifications === true;
+}
+export function slackAllowed(entitlements: Pick<Entitlements, "slackNotifications">): boolean {
+  return entitlements.slackNotifications === true;
+}
+
+// ---- Multi-channel fan-out -------------------------------------------------
+
+export interface DispatchInput {
+  tenantId: string;
+  type: NotificationType;
+  subject: string;
+  body: string;
+  leadId?: string;
+  emailRecipients: string[];
+  smsTo?: string | null;
+  slackWebhookUrl?: string | null;
+  entitlements: Pick<Entitlements, "smsNotifications" | "slackNotifications">;
+  /** Per-channel transport overrides (tests). */
+  transports?: Partial<Record<NotifyChannel, Transport>>;
+}
+
+/**
+ * Fan a notification out to email (always) + SMS + Slack (when configured and
+ * entitled). Each channel is isolated: one channel throwing never blocks others.
+ */
+export async function dispatchNotification(input: DispatchInput): Promise<NotifyResult[]> {
+  const base = { tenantId: input.tenantId, type: input.type, subject: input.subject, body: input.body, leadId: input.leadId };
+  const jobs: Promise<NotifyResult>[] = [];
+
+  const safe = (channel: NotifyChannel, payload: NotifyPayload): Promise<NotifyResult> =>
+    notifyBuilder(channel, payload, input.transports?.[channel]).catch(() => ({ channel, delivered: false, transport: "error" }));
+
+  for (const to of input.emailRecipients) jobs.push(safe("email", { ...base, to }));
+  if (input.smsTo && smsAllowed(input.entitlements)) jobs.push(safe("sms", { ...base, to: "", smsTo: input.smsTo }));
+  if (input.slackWebhookUrl && slackAllowed(input.entitlements)) {
+    jobs.push(safe("slack", { ...base, to: "", slackWebhookUrl: input.slackWebhookUrl }));
+  }
+  return Promise.all(jobs);
 }

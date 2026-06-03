@@ -15,10 +15,14 @@ export async function POST(req: NextRequest, { params }: Params): Promise<NextRe
   if (body.outcome !== "accepted" && body.outcome !== "closed") {
     return NextResponse.json({ error: "invalid_outcome" }, { status: 400 });
   }
-  const result = await setOutcome(auth.ctx.scope, params.id, body.outcome);
+  // Entitled tenants spin up a Job on acceptance (§5.4 job phase).
+  const result = await setOutcome(auth.ctx.scope, params.id, body.outcome, {
+    jobTracking: auth.ctx.meta.entitlements.jobTracking,
+  });
   if ("error" in result) {
     const status = result.error === "not_found" ? 404 : 409;
     return NextResponse.json({ error: result.error }, { status });
   }
-  return NextResponse.json({ ok: true, status: result.status });
+  const job = body.outcome === "accepted" ? await auth.ctx.scope.getJobByLead(params.id) : undefined;
+  return NextResponse.json({ ok: true, status: result.status, jobId: job?.id ?? null });
 }

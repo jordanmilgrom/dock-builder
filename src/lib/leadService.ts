@@ -14,14 +14,16 @@ import type { DockConfig } from "@/engine";
 import { prisma } from "./db.js";
 import { saveRevision } from "./designService.js";
 import type { Entitlements } from "./entitlements.js";
+import { createJobIfEntitled } from "./jobs.js";
 import { canTransition, deriveStatus, type LeadStatus } from "./leadStatus.js";
 import {
   abandonedNotificationAllowed,
-  notifyBuilder,
+  dispatchNotification,
   type NotificationType,
 } from "./notifications.js";
 import type { TenantScope } from "./tenantScope.js";
 import type { Lead, Revision } from "./types.js";
+import { fireEvent } from "./webhooks.js";
 
 /** Builder users who should receive notifications for a tenant. */
 export async function getBuilderRecipients(tenantId: string): Promise<string[]> {
@@ -39,14 +41,25 @@ async function emit(
   title: string,
   body: string,
 ): Promise<void> {
-  // Panel row (dashboard) + email delivery to every builder recipient.
+  // Panel row (dashboard) + multi-channel delivery (email always; SMS/Slack when
+  // configured + entitled). Each channel's failure is isolated.
   await scope.createNotification({ type, leadId: lead.id, title, body });
   const recipients = await getBuilderRecipients(scope.tenantId);
-  await Promise.all(
-    recipients.map((to) =>
-      notifyBuilder("email", { tenantId: scope.tenantId, type, to, subject: title, body, leadId: lead.id }),
-    ),
-  );
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: scope.tenantId },
+    select: { slackWebhookUrl: true, entitlements: true },
+  });
+  const entitlements = (tenant?.entitlements as unknown as Entitlements) ?? null;
+  await dispatchNotification({
+    tenantId: scope.tenantId,
+    type,
+    subject: title,
+    body,
+    leadId: lead.id,
+    emailRecipients: recipients,
+    slackWebhookUrl: tenant?.slackWebhookUrl ?? null,
+    entitlements: entitlements ?? { smsNotifications: false, slackNotifications: false },
+  });
 }
 
 /** Customer submits the design (§5.4 started/abandoned → submitted). Fires new-lead. */
@@ -68,6 +81,7 @@ export async function submitDesign(
   });
   const finalLead = updated ?? lead;
   await scope.recordEvent("design_submitted", { leadId: finalLead.id, designId });
+  await fireEvent(scope, "lead.submitted", { leadId: finalLead.id, designId, email: finalLead.customerContact.email });
   await emit(
     scope,
     "new_lead",
@@ -109,6 +123,7 @@ export async function sendQuote(
   if (opts.config) {
     const rev = await saveRevision(scope, lead.designId, opts.config, builderUserId, "builder");
     if (!rev) return { error: "not_found" };
+    await fireEvent(scope, "design.revised", { leadId, designId: lead.designId, revisionId: rev.id, version: rev.version });
   }
   const design = await scope.getDesign(lead.designId);
   if (!design) return { error: "not_found" };
@@ -121,6 +136,7 @@ export async function sendQuote(
     quotedRevisionId: headRevisionId,
   });
   await scope.recordEvent("quote_sent", { leadId, revisionId: headRevisionId });
+  await fireEvent(scope, "lead.quoted", { leadId, revisionId: headRevisionId, total: (await scope.getRevision(headRevisionId))?.estimateSnapshot?.total ?? null });
   const revision = (await scope.getRevision(headRevisionId))!;
   return { lead: updated ?? lead, revision };
 }
@@ -130,12 +146,20 @@ export async function setOutcome(
   scope: TenantScope,
   leadId: string,
   outcome: "accepted" | "closed",
+  entitlements: Pick<Entitlements, "jobTracking"> = { jobTracking: false },
 ): Promise<Lead | { error: "not_found" | "bad_state" }> {
   const lead = await scope.getLead(leadId);
   if (!lead) return { error: "not_found" };
   if (!canTransition(lead.status, outcome)) return { error: "bad_state" };
   const updated = (await scope.updateLead(leadId, { status: outcome })) ?? lead;
-  if (outcome === "accepted") await scope.recordEvent("lead_accepted", { leadId });
+  if (outcome === "accepted") {
+    await scope.recordEvent("lead_accepted", { leadId });
+    await fireEvent(scope, "lead.accepted", { leadId, email: updated.customerContact.email });
+    // Entitled tenants spin up a Job (in_production); others stay at accepted.
+    await createJobIfEntitled(scope, leadId, entitlements);
+  } else {
+    await fireEvent(scope, "lead.closed", { leadId });
+  }
   return updated;
 }
 

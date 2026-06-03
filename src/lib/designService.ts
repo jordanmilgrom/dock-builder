@@ -20,6 +20,7 @@ import { generateStartingDesign } from "@/engine";
 import type { TenantScope } from "./tenantScope.js";
 import type { AuthorRole, Consent, ConsentSource, Design, Revision } from "./types.js";
 import { buildRevision, canCreateDraft } from "./versioning.js";
+import { fireEvent } from "./webhooks.js";
 
 export async function priceConfig(
   scope: TenantScope,
@@ -192,6 +193,8 @@ export async function captureContact(
     quotedRevisionId: existing?.quotedRevisionId ?? null,
     createdAt: existing?.createdAt ?? now,
   });
+  // Phase 5: a brand-new captured lead fires the lead.created webhook.
+  if (!existing) await fireEvent(scope, "lead.created", { designId, email, source });
   return consent;
 }
 

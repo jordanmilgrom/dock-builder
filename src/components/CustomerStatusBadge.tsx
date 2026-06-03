@@ -1,9 +1,12 @@
 import { leadStatusLabel, type LeadStatus } from "@/lib/leadStatus";
+import { jobStatusLabel } from "@/lib/jobs";
+import type { JobStatus } from "@/lib/types";
 
 /**
- * Customer-facing status pill. Uses ONLY customer vocabulary (§5.4): it routes
- * every label through leadStatusLabel(_, "customer"), so internal sales
- * terminology can never reach the customer.
+ * Customer-facing status pill. Uses ONLY customer vocabulary (§5.4): every label
+ * routes through leadStatusLabel/jobStatusLabel with audience "customer", so
+ * internal sales terminology can never reach the customer. When a Job exists
+ * (accepted lead, Pro+), the job phase replaces the lead status.
  */
 const TONE: Record<LeadStatus, string> = {
   started: "bg-slate-100 text-slate-600",
@@ -15,7 +18,20 @@ const TONE: Record<LeadStatus, string> = {
   closed: "bg-slate-200 text-slate-600",
 };
 
-export default function CustomerStatusBadge({ status }: { status: LeadStatus | null }) {
+export default function CustomerStatusBadge({
+  status,
+  jobStatus,
+}: {
+  status: LeadStatus | null;
+  jobStatus?: JobStatus | null;
+}) {
+  if (jobStatus) {
+    return (
+      <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">
+        {jobStatusLabel(jobStatus, "customer")}
+      </span>
+    );
+  }
   if (!status) {
     return <span className="rounded px-1.5 py-0.5 text-xs bg-slate-100 text-slate-500">Draft</span>;
   }

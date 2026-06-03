@@ -12,7 +12,7 @@ import {
   type JoistSize,
   type PricingProfile,
 } from "@/engine";
-import ViewsPanel from "./ViewsPanel";
+import Design3DToggle from "./Design3DToggle";
 import SaveGate, { type CaptureResult } from "./SaveGate";
 
 const DOCK_TYPES: DockType[] = ["floating", "pile", "pipe", "crib", "suspension"];
@@ -38,6 +38,8 @@ export default function Configurator({
   mode = "customer",
   leadId,
   alreadySubmitted = false,
+  threeDEnabled = false,
+  primaryColor,
 }: {
   designId: string;
   initialConfig: DockConfig;
@@ -51,6 +53,9 @@ export default function Configurator({
   /** Required in builder mode: the lead being re-quoted. */
   leadId?: string;
   alreadySubmitted?: boolean;
+  /** Pro+ → interactive 3D toggle; Starter → flat schematic only (§8 item 3). */
+  threeDEnabled?: boolean;
+  primaryColor?: string;
 }) {
   const isBuilder = mode === "builder";
   const [config, setConfig] = useState<DockConfig>(initialConfig);
@@ -287,7 +292,7 @@ export default function Configurator({
 
       {/* Views + feedback */}
       <div className="space-y-4">
-        <ViewsPanel config={config} />
+        <Design3DToggle config={config} enabled={threeDEnabled} {...(primaryColor ? { primaryColor } : {})} />
 
         <Panel title="Engineering checks">
           <Metrics validation={validation} />

@@ -6,10 +6,12 @@ import BrandingEditor from "@/components/BrandingEditor";
 import BuilderSettings from "@/components/BuilderSettings";
 import CustomDomainConfig from "@/components/CustomDomainConfig";
 import EmbedSnippet from "@/components/EmbedSnippet";
+import NotificationChannels from "@/components/NotificationChannels";
 import NotificationsPanel from "@/components/NotificationsPanel";
 import PricingEditor, { type EditorProfile } from "@/components/PricingEditor";
 import PricingProfilesManager from "@/components/PricingProfilesManager";
 import TeamManager from "@/components/TeamManager";
+import WebhookManager from "@/components/WebhookManager";
 import { getDashboardMetrics } from "@/lib/analytics";
 import { requireBuilder } from "@/lib/authz";
 import { CUSTOM_DOMAIN_CNAME_TARGET } from "@/lib/customDomain";
@@ -68,6 +70,11 @@ export default async function BuilderDashboard() {
           <Link href="/builder/leads" className="rounded border border-brand px-3 py-2 text-sm font-semibold text-brand hover:bg-cyan-50">
             Leads
           </Link>
+          {ent.jobTracking && (
+            <Link href="/builder/jobs" className="rounded border border-brand px-3 py-2 text-sm font-semibold text-brand hover:bg-cyan-50">
+              Jobs
+            </Link>
+          )}
           <Link href="/builder/customers" className="rounded border border-brand px-3 py-2 text-sm font-semibold text-brand hover:bg-cyan-50">
             Customers
           </Link>
@@ -132,6 +139,22 @@ export default async function BuilderDashboard() {
         <h3 className="mb-2 text-sm font-semibold text-slate-800">Pricing profiles</h3>
         <PricingProfilesManager entitled={ent.multipleProfiles} />
       </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h3 className="mb-2 text-sm font-semibold text-slate-800">Notification channels</h3>
+        <NotificationChannels
+          slackEnabled={ent.slackNotifications}
+          smsEnabled={ent.smsNotifications}
+          initialSlackUrl={tenant.slackWebhookUrl}
+        />
+      </section>
+
+      {isAdmin && (
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-2 text-sm font-semibold text-slate-800">Outbound webhooks</h3>
+          <WebhookManager entitled={ent.webhooks} />
+        </section>
+      )}
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="mb-2 text-sm font-semibold text-slate-800">Subscription</h3>

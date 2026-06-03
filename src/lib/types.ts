@@ -8,8 +8,9 @@
  */
 
 import type { DockConfig, PricingResult, SiteConditions } from "@/engine";
+import type { LeadStatus } from "./leadStatus.js";
 
-/** Who authored a revision. Phase 1 only ever sees "customer". */
+/** Who authored a revision: the customer, or the builder (re-quote, §5.5). */
 export type AuthorRole = "customer" | "builder";
 
 /** Where a contact/consent was captured (§5.3). */
@@ -27,6 +28,8 @@ export interface Customer {
   /** Auto-fills the questionnaire next time (§5.6). */
   savedShoreline?: SiteConditions;
   consent?: Consent;
+  /** Builder's free-text CRM notes (§5.6); 5,000 char cap at the API boundary. */
+  notes?: string;
   createdAt: string;
 }
 
@@ -59,9 +62,9 @@ export interface Design {
 }
 
 /**
- * Minimal Lead record. The full state machine + abandoned-follow-up is Phase 3;
- * here we just persist the contact + consent the moment it is captured (§5.3),
- * plus a placeholder for the abandoned threshold.
+ * A captured Lead and its §5.4 state. `status` is the PERSISTED state; the
+ * effective status (started → abandoned) is derived from `lastActivityAt` and
+ * the tenant's threshold via `leadStatus.deriveStatus`.
  */
 export interface Lead {
   id: string;
@@ -70,10 +73,25 @@ export interface Lead {
   customerId: string;
   customerContact: { email: string };
   consent: Consent;
-  /** Phase 1: always "started"; Phase 3 introduces the full §5.4 machine. */
-  status: "started";
-  // TODO(Phase 3): flip started → abandoned after N days of inactivity.
-  abandonedThresholdDays: number | null;
+  status: LeadStatus;
+  /** Bumped on every customer interaction; drives the abandoned derivation. */
+  lastActivityAt: string;
+  /** Set when the customer submits the design. */
+  submittedAt: string | null;
+  /** Revision the builder last sent as a quote (re-quote updates it; status stays "quoted"). */
+  quotedRevisionId: string | null;
+  createdAt: string;
+}
+
+/** A builder dashboard notification (§8 Phase 3 item 5). */
+export interface Notification {
+  id: string;
+  tenantId: string;
+  type: "new_lead" | "abandoned_lead";
+  leadId: string | null;
+  title: string;
+  body: string;
+  read: boolean;
   createdAt: string;
 }
 

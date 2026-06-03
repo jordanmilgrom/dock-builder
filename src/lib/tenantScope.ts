@@ -26,6 +26,7 @@ import type {
   Customer,
   Design,
   Lead,
+  Notification,
   Revision,
 } from "./types.js";
 
@@ -39,6 +40,7 @@ function toCustomer(r: NonNullable<Awaited<ReturnType<Prisma["customer"]["findFi
     email: r.email,
     ...(r.savedShoreline ? { savedShoreline: r.savedShoreline as unknown as SiteConditions } : {}),
     ...(r.consent ? { consent: r.consent as unknown as Consent } : {}),
+    ...(r.notes ? { notes: r.notes } : {}),
     createdAt: r.createdAt.toISOString(),
   };
 }
@@ -79,8 +81,23 @@ function toLead(r: NonNullable<Awaited<ReturnType<Prisma["lead"]["findFirst"]>>>
     customerId: r.customerId,
     customerContact: r.customerContact as unknown as { email: string },
     consent: r.consent as unknown as Consent,
-    status: "started",
-    abandonedThresholdDays: r.abandonedThresholdDays ?? null,
+    status: r.status as Lead["status"],
+    lastActivityAt: r.lastActivityAt.toISOString(),
+    submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
+    quotedRevisionId: r.quotedRevisionId ?? null,
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+
+function toNotification(r: NonNullable<Awaited<ReturnType<Prisma["notification"]["findFirst"]>>>): Notification {
+  return {
+    id: r.id,
+    tenantId: r.tenantId,
+    type: r.type as Notification["type"],
+    leadId: r.leadId ?? null,
+    title: r.title,
+    body: r.body,
+    read: r.read,
     createdAt: r.createdAt.toISOString(),
   };
 }
@@ -95,6 +112,8 @@ export interface TenantScope {
   updateCustomer(id: string, patch: Partial<Customer>): Promise<Customer | undefined>;
   upsertCustomer(email: string, patch?: Partial<Customer>): Promise<Customer>;
 
+  listCustomers(): Promise<Customer[]>;
+
   // Designs
   getDesign(id: string): Promise<Design | undefined>;
   listDesignsByCustomer(customerId: string): Promise<Design[]>;
@@ -108,9 +127,18 @@ export interface TenantScope {
   listRevisions(designId: string): Promise<Revision[]>;
 
   // Leads
+  getLead(id: string): Promise<Lead | undefined>;
+  listLeads(): Promise<Lead[]>;
   findLeadByDesign(designId: string): Promise<Lead | undefined>;
   upsertLead(input: Omit<Lead, "tenantId">): Promise<Lead>;
+  updateLead(id: string, patch: Partial<Omit<Lead, "id" | "tenantId">>): Promise<Lead | undefined>;
   countLeads(): Promise<number>;
+
+  // Notifications
+  createNotification(input: { type: Notification["type"]; leadId?: string | null; title: string; body: string }): Promise<Notification>;
+  listNotifications(limit?: number): Promise<Notification[]>;
+  countUnreadNotifications(): Promise<number>;
+  markNotificationsRead(): Promise<number>;
 
   // Branding + catalog/pricing
   getBranding(): Promise<Branding | undefined>;
@@ -157,6 +185,13 @@ export function createTenantScope(tenantId: string): TenantScope {
       }
       const r = await prisma.customer.create({ data: { tenantId, email, ...customerPatch(patch) } });
       return toCustomer(r);
+    },
+    async listCustomers() {
+      const rows = await prisma.customer.findMany({
+        where: { tenantId, email: { not: "" } },
+        orderBy: { createdAt: "desc" },
+      });
+      return rows.map(toCustomer);
     },
 
     // ---- Designs ----------------------------------------------------------
@@ -232,6 +267,14 @@ export function createTenantScope(tenantId: string): TenantScope {
     },
 
     // ---- Leads ------------------------------------------------------------
+    async getLead(id) {
+      const r = await prisma.lead.findFirst({ where: { id, tenantId } });
+      return r ? toLead(r) : undefined;
+    },
+    async listLeads() {
+      const rows = await prisma.lead.findMany({ where: { tenantId }, orderBy: { updatedAt: "desc" } });
+      return rows.map(toLead);
+    },
     async findLeadByDesign(designId) {
       const r = await prisma.lead.findFirst({ where: { tenantId, designId } });
       return r ? toLead(r) : undefined;
@@ -243,7 +286,9 @@ export function createTenantScope(tenantId: string): TenantScope {
         customerContact: input.customerContact as unknown as object,
         consent: input.consent as unknown as object,
         status: input.status,
-        abandonedThresholdDays: input.abandonedThresholdDays ?? null,
+        lastActivityAt: new Date(input.lastActivityAt),
+        submittedAt: input.submittedAt ? new Date(input.submittedAt) : null,
+        quotedRevisionId: input.quotedRevisionId ?? null,
       };
       if (existing) {
         await prisma.lead.update({ where: { id: existing.id }, data });
@@ -255,8 +300,42 @@ export function createTenantScope(tenantId: string): TenantScope {
       });
       return toLead(r);
     },
+    async updateLead(id, patch) {
+      const data: Record<string, unknown> = {};
+      if (patch.status !== undefined) data.status = patch.status;
+      if (patch.lastActivityAt !== undefined) data.lastActivityAt = new Date(patch.lastActivityAt);
+      if (patch.submittedAt !== undefined) data.submittedAt = patch.submittedAt ? new Date(patch.submittedAt) : null;
+      if (patch.quotedRevisionId !== undefined) data.quotedRevisionId = patch.quotedRevisionId;
+      const res = await prisma.lead.updateMany({ where: { id, tenantId }, data });
+      if (res.count === 0) return undefined;
+      const r = await prisma.lead.findFirst({ where: { id, tenantId } });
+      return r ? toLead(r) : undefined;
+    },
     async countLeads() {
       return prisma.lead.count({ where: { tenantId } });
+    },
+
+    // ---- Notifications ----------------------------------------------------
+    async createNotification(input) {
+      const r = await prisma.notification.create({
+        data: { tenantId, type: input.type, leadId: input.leadId ?? null, title: input.title, body: input.body },
+      });
+      return toNotification(r);
+    },
+    async listNotifications(limit = 20) {
+      const rows = await prisma.notification.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      });
+      return rows.map(toNotification);
+    },
+    async countUnreadNotifications() {
+      return prisma.notification.count({ where: { tenantId, read: false } });
+    },
+    async markNotificationsRead() {
+      const res = await prisma.notification.updateMany({ where: { tenantId, read: false }, data: { read: true } });
+      return res.count;
     },
 
     // ---- Branding + catalog ----------------------------------------------
@@ -319,5 +398,6 @@ function customerPatch(patch: Partial<Customer>): Record<string, unknown> {
   if (patch.email !== undefined) data.email = patch.email;
   if (patch.savedShoreline !== undefined) data.savedShoreline = patch.savedShoreline as unknown as object;
   if (patch.consent !== undefined) data.consent = patch.consent as unknown as object;
+  if (patch.notes !== undefined) data.notes = patch.notes;
   return data;
 }

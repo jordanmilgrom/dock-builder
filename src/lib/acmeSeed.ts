@@ -14,11 +14,13 @@ import { entitlementsForTier, leadCapForTier } from "./entitlements.js";
 import { signUpBuilder } from "./onboarding.js";
 import { ACME_BRAND, ACME_SLUG, ACME_TENANT_ID } from "./seed.js";
 import { createTenantScope } from "./tenantScope.js";
+import { WEBHOOK_EVENT_KINDS } from "./webhooks.js";
 
 export const ACME_ADMIN_EMAIL = process.env.ACME_ADMIN_EMAIL ?? "owner@acme-docks.test";
 export const PLATFORM_ADMIN_EMAIL = process.env.PLATFORM_ADMIN_EMAIL ?? "admin@dockconfigurator.test";
 
 const STARTER_TEMPLATE_NAME = "Starter floating dock";
+export const SEEDED_WEBHOOK_URL = "https://example.test/dock-events";
 
 export async function seedAcme(): Promise<string> {
   const existing = await prisma.tenant.findUnique({ where: { id: ACME_TENANT_ID } });
@@ -66,6 +68,17 @@ export async function seedAcme(): Promise<string> {
       { tenantId: ACME_TENANT_ID, dockType: "floating" },
     );
     await scope.createTemplate({ name: STARTER_TEMPLATE_NAME, config, createdBy: "seed" });
+  }
+
+  // Phase 5: seed one webhook endpoint so the jobs flow has somewhere to fire
+  // (mocked in tests). Idempotent.
+  const endpoints = await scope.listWebhookEndpoints();
+  if (!endpoints.some((e) => e.url === SEEDED_WEBHOOK_URL)) {
+    await scope.createWebhookEndpoint({
+      url: SEEDED_WEBHOOK_URL,
+      secret: "whsec_acme_seed_secret",
+      eventKinds: [...WEBHOOK_EVENT_KINDS],
+    });
   }
   return ACME_TENANT_ID;
 }

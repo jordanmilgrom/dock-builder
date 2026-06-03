@@ -65,6 +65,10 @@ model Tenant {
   customDomainVerifiedAt DateTime?
   customDomainTxtToken   String?
 
+  // Phase 5: notification channel config (gated by entitlements).
+  slackWebhookUrl    String?
+  twilioFromOverride String?
+
   branding        Branding?
   users           User[]
   customers       Customer[]
@@ -77,9 +81,12 @@ model Tenant {
   floatProducts   FloatProduct[]
   deckingProducts DeckingProduct[]
   accessoryProducts AccessoryProduct[]
-  templates       Template[]
-  events          Event[]
-  invitations     Invitation[]
+  templates        Template[]
+  events           Event[]
+  invitations      Invitation[]
+  jobs             Job[]
+  webhookEndpoints WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
 }
 
 // ---------------------------------------------------------------------------
@@ -292,6 +299,8 @@ model Lead {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  job             Job?
+
   @@index([tenantId])
   @@index([tenantId, status])
 }
@@ -355,4 +364,69 @@ model Invitation {
   createdAt  DateTime @default(now())
 
   @@index([tenantId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: job tracking, outbound webhooks
+// ---------------------------------------------------------------------------
+
+// §5.4 job phase. A Job is created when a lead is accepted on a tenant with
+// entitlements.jobTracking; it is its own state machine joined by leadId.
+enum JobStatus {
+  in_production
+  install_scheduled
+  complete
+}
+
+model Job {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId     String    @unique
+  lead       Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  status     JobStatus @default(in_production)
+  milestones Json      @default("[]") // { label, at }[]
+  notes      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+// Tenant-configured outbound webhook target (§5.9). Gated by entitlements.webhooks.
+model WebhookEndpoint {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  url                String
+  // Signing secret. Symmetric HMAC requires it for signing, so it is stored and
+  // shown exactly once at creation — never returned by read APIs.
+  secret             String
+  eventKinds         String[]
+  createdAt          DateTime  @default(now())
+  lastDeliveryAt     DateTime?
+  lastDeliveryStatus String?
+  deliveries         WebhookDelivery[]
+
+  @@index([tenantId])
+}
+
+model WebhookDelivery {
+  id            String          @id @default(cuid())
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  endpointId    String
+  endpoint      WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  eventKind     String
+  payload       Json
+  attempt       Int             @default(0)
+  status        String          @default("pending") // pending | delivered | failed
+  nextAttemptAt DateTime        @default(now())
+  lastError     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@index([status, nextAttemptAt])
 }

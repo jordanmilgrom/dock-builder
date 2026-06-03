@@ -82,6 +82,35 @@ export type EventKind =
   | "quote_sent"
   | "lead_accepted";
 
+/** §5.4 job phase (Phase 5). Its own state machine, joined to a Lead by leadId. */
+export type JobStatus = "in_production" | "install_scheduled" | "complete";
+
+export interface JobMilestone {
+  label: string;
+  at: string; // ISO
+}
+
+export interface Job {
+  id: string;
+  tenantId: string;
+  leadId: string;
+  status: JobStatus;
+  milestones: JobMilestone[];
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A tenant-configured outbound webhook target (§5.9). Secret is never exposed. */
+export interface WebhookEndpointSummary {
+  id: string;
+  url: string;
+  eventKinds: string[];
+  createdAt: string;
+  lastDeliveryAt: string | null;
+  lastDeliveryStatus: string | null;
+}
+
 /**
  * A captured Lead and its §5.4 state. `status` is the PERSISTED state; the
  * effective status (started → abandoned) is derived from `lastActivityAt` and

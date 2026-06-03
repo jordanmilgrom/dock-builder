@@ -41,6 +41,8 @@ export default async function DesignPage({ params }: { params: { id: string } })
         profiles={profiles}
         brandName={ctx.meta.branding.name}
         alreadySubmitted={design.status === "submitted"}
+        threeDEnabled={ctx.meta.entitlements.fullThreeD}
+        primaryColor={ctx.meta.branding.primaryColor}
       />
     </div>
   );

@@ -3,6 +3,10 @@
     {
       "path": "/api/internal/sweep-abandoned",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/internal/drain-webhooks",
+      "schedule": "0 * * * *"
     }
   ]
 }

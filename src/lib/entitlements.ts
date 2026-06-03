@@ -29,8 +29,16 @@ export interface Entitlements {
   analytics: boolean;
   /** Invite builder_member teammates (Pro+, Phase 4). */
   team: boolean;
-  /** Record-only; outbound webhooks/integrations unlock in Phase 5. */
+  /** Outbound webhooks fire signed HTTPS (Premium, Phase 5). */
   webhooks: boolean;
+  /** Job tracking on accepted leads (Pro+, Phase 5). */
+  jobTracking: boolean;
+  /** Interactive 3D viewer vs. flat isometric (Pro+, Phase 5). */
+  fullThreeD: boolean;
+  /** SMS (Twilio) notification channel (Premium, Phase 5). */
+  smsNotifications: boolean;
+  /** Slack notification channel (Pro+, Phase 5). */
+  slackNotifications: boolean;
 }
 
 export interface TierPlan {
@@ -54,6 +62,10 @@ const PLANS: Record<SubscriptionTier, TierPlan> = {
       analytics: false,
       team: false,
       webhooks: false,
+      jobTracking: false,
+      fullThreeD: false,
+      smsNotifications: false,
+      slackNotifications: false,
     },
   },
   pro: {
@@ -69,6 +81,10 @@ const PLANS: Record<SubscriptionTier, TierPlan> = {
       analytics: false,
       team: true, // Phase 4
       webhooks: false,
+      jobTracking: true, // Phase 5
+      fullThreeD: true, // Phase 5
+      smsNotifications: false,
+      slackNotifications: true, // Phase 5
     },
   },
   premium: {
@@ -83,7 +99,11 @@ const PLANS: Record<SubscriptionTier, TierPlan> = {
       customDomain: true, // Phase 4
       analytics: true, // Phase 4
       team: true,
-      webhooks: true, // record-only (Phase 5 unlocks behavior)
+      webhooks: true, // Phase 5: now fires outbound HTTPS
+      jobTracking: true,
+      fullThreeD: true,
+      smsNotifications: true, // Phase 5
+      slackNotifications: true,
     },
   },
 };

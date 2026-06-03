@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Configurator from "@/components/Configurator";
 import CustomerNotes from "@/components/CustomerNotes";
+import JobPanel from "@/components/JobPanel";
 import LeadOutcomeButtons from "@/components/LeadOutcomeButtons";
 import SaveTemplateButton from "@/components/SaveTemplateButton";
 import { builderOpenLead } from "@/lib/leadService";
@@ -27,6 +28,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
   const customer = await ctx.scope.getCustomer(lead.customerId);
   const profiles = await loadProfiles(ctx.scope);
   const derived = deriveStatus(lead.status, lead.lastActivityAt, ctx.meta.abandonedThresholdDays);
+  const job = await ctx.scope.getJobByLead(lead.id);
 
   const fmtDate = (s: string) => new Date(s).toLocaleString("en-US");
 
@@ -67,6 +69,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
         </ol>
       </section>
 
+      {job && <JobPanel jobId={job.id} status={job.status} notes={job.notes ?? ""} milestones={job.milestones} />}
+
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="mb-1 text-sm font-semibold text-slate-800">Customer notes</h3>
         <CustomerNotes customerId={lead.customerId} initialNotes={customer?.notes ?? ""} />
@@ -84,6 +88,8 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             brandName={ctx.meta.branding.name}
             mode="builder"
             leadId={lead.id}
+            threeDEnabled={ctx.meta.entitlements.fullThreeD}
+            primaryColor={ctx.meta.branding.primaryColor}
           />
         )}
       </div>

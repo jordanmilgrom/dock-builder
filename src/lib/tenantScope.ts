@@ -26,11 +26,39 @@ import type {
   Customer,
   Design,
   EventKind,
+  Job,
+  JobMilestone,
+  JobStatus,
   Lead,
   Notification,
   Revision,
   Template,
+  WebhookEndpointSummary,
 } from "./types.js";
+
+function toJob(r: NonNullable<Awaited<ReturnType<typeof prisma.job.findFirst>>>): Job {
+  return {
+    id: r.id,
+    tenantId: r.tenantId,
+    leadId: r.leadId,
+    status: r.status as JobStatus,
+    milestones: (r.milestones as unknown as JobMilestone[]) ?? [],
+    notes: r.notes ?? null,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+function toEndpoint(r: NonNullable<Awaited<ReturnType<typeof prisma.webhookEndpoint.findFirst>>>): WebhookEndpointSummary {
+  return {
+    id: r.id,
+    url: r.url,
+    eventKinds: r.eventKinds,
+    createdAt: r.createdAt.toISOString(),
+    lastDeliveryAt: r.lastDeliveryAt ? r.lastDeliveryAt.toISOString() : null,
+    lastDeliveryStatus: r.lastDeliveryStatus ?? null,
+  };
+}
 
 type PrismaProfileWithItems = NonNullable<
   Awaited<ReturnType<typeof prisma.pricingProfile.findFirst<{ include: { items: true } }>>>
@@ -200,6 +228,20 @@ export interface TenantScope {
 
   // Analytics events (§5.6)
   recordEvent(kind: EventKind, meta?: Record<string, unknown>): Promise<void>;
+
+  // Jobs (§5.4 job phase, Phase 5)
+  createJob(input: { leadId: string }): Promise<Job>;
+  getJob(id: string): Promise<Job | undefined>;
+  getJobByLead(leadId: string): Promise<Job | undefined>;
+  listJobs(): Promise<Job[]>;
+  updateJob(id: string, patch: { status?: JobStatus; notes?: string; milestones?: JobMilestone[] }): Promise<Job | undefined>;
+
+  // Webhook endpoints (§5.9, Phase 5) — secret stored, never returned by reads.
+  createWebhookEndpoint(input: { url: string; secret: string; eventKinds: string[] }): Promise<WebhookEndpointSummary>;
+  listWebhookEndpoints(): Promise<WebhookEndpointSummary[]>;
+  deleteWebhookEndpoint(id: string): Promise<boolean>;
+  /** Enqueue a delivery to every endpoint subscribed to `kind`. Returns count. */
+  enqueueWebhookEvent(kind: string, payload: unknown): Promise<number>;
 }
 
 export interface PricingProfileSummary {
@@ -515,6 +557,66 @@ export function createTenantScope(tenantId: string): TenantScope {
       await prisma.event.create({
         data: { tenantId, kind, ...(meta ? { meta: meta as object } : {}) },
       });
+    },
+
+    // ---- Jobs -------------------------------------------------------------
+    async createJob(input) {
+      const r = await prisma.job.create({ data: { tenantId, leadId: input.leadId } });
+      return toJob(r);
+    },
+    async getJob(id) {
+      const r = await prisma.job.findFirst({ where: { id, tenantId } });
+      return r ? toJob(r) : undefined;
+    },
+    async getJobByLead(leadId) {
+      const r = await prisma.job.findFirst({ where: { leadId, tenantId } });
+      return r ? toJob(r) : undefined;
+    },
+    async listJobs() {
+      const rows = await prisma.job.findMany({ where: { tenantId }, orderBy: { updatedAt: "desc" } });
+      return rows.map(toJob);
+    },
+    async updateJob(id, patch) {
+      const data: Record<string, unknown> = {};
+      if (patch.status !== undefined) data.status = patch.status;
+      if (patch.notes !== undefined) data.notes = patch.notes;
+      if (patch.milestones !== undefined) data.milestones = patch.milestones as unknown as object;
+      const res = await prisma.job.updateMany({ where: { id, tenantId }, data });
+      if (res.count === 0) return undefined;
+      const r = await prisma.job.findFirst({ where: { id, tenantId } });
+      return r ? toJob(r) : undefined;
+    },
+
+    // ---- Webhook endpoints ------------------------------------------------
+    async createWebhookEndpoint(input) {
+      const r = await prisma.webhookEndpoint.create({
+        data: { tenantId, url: input.url, secret: input.secret, eventKinds: input.eventKinds },
+      });
+      return toEndpoint(r);
+    },
+    async listWebhookEndpoints() {
+      const rows = await prisma.webhookEndpoint.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" } });
+      return rows.map(toEndpoint);
+    },
+    async deleteWebhookEndpoint(id) {
+      const res = await prisma.webhookEndpoint.deleteMany({ where: { id, tenantId } });
+      return res.count > 0;
+    },
+    async enqueueWebhookEvent(kind, payload) {
+      const endpoints = await prisma.webhookEndpoint.findMany({
+        where: { tenantId, eventKinds: { has: kind } },
+        select: { id: true },
+      });
+      if (endpoints.length === 0) return 0;
+      await prisma.webhookDelivery.createMany({
+        data: endpoints.map((e) => ({
+          tenantId,
+          endpointId: e.id,
+          eventKind: kind,
+          payload: payload as object,
+        })),
+      });
+      return endpoints.length;
     },
   };
 }

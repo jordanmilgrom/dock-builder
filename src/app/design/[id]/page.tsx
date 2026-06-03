@@ -40,6 +40,7 @@ export default async function DesignPage({ params }: { params: { id: string } })
         emailCaptured={Boolean(customer?.email)}
         profiles={profiles}
         brandName={ctx.meta.branding.name}
+        alreadySubmitted={design.status === "submitted"}
       />
     </div>
   );

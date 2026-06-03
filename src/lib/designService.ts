@@ -91,6 +91,15 @@ export async function saveRevision(
   });
   await scope.addRevision(revision);
   await scope.updateDesign(designId, { currentRevisionId: revision.id });
+
+  // Customer edits keep a captured-but-unsubmitted lead "fresh" so the abandoned
+  // clock (§10 #7) only starts after they actually go quiet.
+  if (authorRole === "customer") {
+    const lead = await scope.findLeadByDesign(designId);
+    if (lead && lead.status === "started") {
+      await scope.updateLead(lead.id, { lastActivityAt: new Date().toISOString() });
+    }
+  }
   return revision;
 }
 
@@ -136,6 +145,7 @@ export async function captureContact(
   const consent: Consent = { optedIn, source, timestamp: new Date().toISOString() };
   await scope.updateCustomer(customerId, { email, consent });
 
+  const now = new Date().toISOString();
   const existing = await scope.findLeadByDesign(designId);
   await scope.upsertLead({
     id: existing?.id ?? `lead_${crypto.randomUUID()}`,
@@ -143,9 +153,13 @@ export async function captureContact(
     customerId,
     customerContact: { email },
     consent,
-    status: "started",
-    abandonedThresholdDays: null, // TODO(Phase 3)
-    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    // started is created the moment contact is captured (§5.4); a re-capture
+    // just refreshes activity and never regresses an advanced state.
+    status: existing?.status ?? "started",
+    lastActivityAt: now,
+    submittedAt: existing?.submittedAt ?? null,
+    quotedRevisionId: existing?.quotedRevisionId ?? null,
+    createdAt: existing?.createdAt ?? now,
   });
   return consent;
 }

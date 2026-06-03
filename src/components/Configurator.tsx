@@ -35,6 +35,9 @@ export default function Configurator({
   emailCaptured,
   profiles,
   brandName,
+  mode = "customer",
+  leadId,
+  alreadySubmitted = false,
 }: {
   designId: string;
   initialConfig: DockConfig;
@@ -43,10 +46,17 @@ export default function Configurator({
   /** This tenant's pricing profile per dock type (cloned from its catalog). */
   profiles: Partial<Record<DockType, PricingProfile>>;
   brandName: string;
+  /** "builder" repurposes the editor for the revise-and-resend loop (§5.5). */
+  mode?: "customer" | "builder";
+  /** Required in builder mode: the lead being re-quoted. */
+  leadId?: string;
+  alreadySubmitted?: boolean;
 }) {
+  const isBuilder = mode === "builder";
   const [config, setConfig] = useState<DockConfig>(initialConfig);
   const [version, setVersion] = useState(initialVersion);
-  const [captured, setCaptured] = useState(emailCaptured);
+  const [captured, setCaptured] = useState(emailCaptured || isBuilder);
+  const [submitted, setSubmitted] = useState(alreadySubmitted);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [gate, setGate] = useState<null | "save">(null);
@@ -134,6 +144,44 @@ export default function Configurator({
     window.open(`/api/designs/${designId}/pdf`, "_blank");
   }
 
+  async function handleSubmit() {
+    if (hasErrors || !captured || submitted) return;
+    if (dirty) { const ok = await persist(); if (!ok) return; }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/designs/${designId}/submit`, { method: "POST" });
+      if (res.ok) { setSubmitted(true); setStatus("Submitted — the builder will review and send your quote."); }
+      else setStatus("Could not submit.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSendQuote() {
+    if (hasErrors || !leadId) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      const res = await fetch(`/api/builder/leads/${leadId}/quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config }),
+      });
+      const data = (await res.json()) as { ok?: boolean; revision?: { version: number } };
+      if (res.ok && data.ok) {
+        if (data.revision) setVersion(data.revision.version);
+        setDirty(false);
+        setStatus(`Quote sent${data.revision ? ` (v${data.revision.version})` : ""}.`);
+      } else {
+        setStatus("Could not send quote.");
+      }
+    } catch {
+      setStatus("Network error.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onCaptured(r: CaptureResult) {
     setCaptured(true);
     setGate(null);
@@ -205,13 +253,28 @@ export default function Configurator({
         </Panel>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={handleSave} disabled={busy || hasErrors} className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50">
-            {busy ? "Saving…" : dirty ? "Save changes" : `Saved v${version}`}
-          </button>
-          <button onClick={handlePdf} disabled={busy} className="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50">
-            Download PDF
-          </button>
-          {hasErrors && <span className="text-xs text-red-600">Resolve errors to save the estimate.</span>}
+          {isBuilder ? (
+            <button onClick={handleSendQuote} disabled={busy || hasErrors} className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50">
+              {busy ? "Sending…" : "Send quote"}
+            </button>
+          ) : (
+            <>
+              <button onClick={handleSave} disabled={busy || hasErrors} className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50">
+                {busy ? "Saving…" : dirty ? "Save changes" : `Saved v${version}`}
+              </button>
+              <button onClick={handlePdf} disabled={busy} className="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50">
+                Download PDF
+              </button>
+              {submitted ? (
+                <span className="rounded bg-emerald-100 px-3 py-2 text-sm font-semibold text-emerald-700">Submitted ✓</span>
+              ) : (
+                <button onClick={handleSubmit} disabled={busy || hasErrors || !captured} title={!captured ? "Save your design first" : undefined} className="rounded border border-brand px-4 py-2 text-sm font-semibold text-brand hover:bg-cyan-50 disabled:opacity-50">
+                  Submit to builder
+                </button>
+              )}
+            </>
+          )}
+          {hasErrors && <span className="text-xs text-red-600">Resolve errors to continue.</span>}
           {status && <span className="text-xs text-emerald-700">{status}</span>}
         </div>
         {magicLink && (

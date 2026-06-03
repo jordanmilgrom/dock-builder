@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import BillingButtons from "@/components/BillingButtons";
 import BrandingEditor from "@/components/BrandingEditor";
+import BuilderSettings from "@/components/BuilderSettings";
+import NotificationsPanel from "@/components/NotificationsPanel";
 import PricingEditor, { type EditorProfile } from "@/components/PricingEditor";
 import { requireBuilder } from "@/lib/authz";
 import { prisma } from "@/lib/db";
@@ -47,14 +50,24 @@ export default async function BuilderDashboard() {
             {tenant.subscriptionStatus === "trialing" && trialEnds ? ` · trial ends ${trialEnds}` : ""}
           </p>
         </div>
-        <a
-          href={`/?tenant=${tenant.slug}`}
-          target="_blank"
-          className="rounded bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800"
-        >
-          View hosted page ↗
-        </a>
+        <div className="flex items-center gap-2">
+          <Link href="/builder/leads" className="rounded border border-brand px-3 py-2 text-sm font-semibold text-brand hover:bg-cyan-50">
+            Leads
+          </Link>
+          <Link href="/builder/customers" className="rounded border border-brand px-3 py-2 text-sm font-semibold text-brand hover:bg-cyan-50">
+            Customers
+          </Link>
+          <a
+            href={`/?tenant=${tenant.slug}`}
+            target="_blank"
+            className="rounded bg-brand px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800"
+          >
+            View hosted page ↗
+          </a>
+        </div>
       </div>
+
+      <NotificationsPanel />
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <h3 className="mb-2 text-sm font-semibold text-slate-800">Subscription</h3>
@@ -63,6 +76,16 @@ export default async function BuilderDashboard() {
           {tenant.leadCap === null ? "unlimited" : `${tenant.leadCap}/mo`}.
         </p>
         <BillingButtons currentTier={tenant.tier} />
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <h3 className="mb-2 text-sm font-semibold text-slate-800">Lead follow-up</h3>
+        <p className="mb-3 text-xs text-slate-500">
+          {ent.abandonedFollowUp
+            ? "Abandoned-lead notifications are on for your plan."
+            : "Abandoned-lead notifications require Pro or Premium."}
+        </p>
+        <BuilderSettings initialDays={tenant.abandonedThresholdDays} />
       </section>
 
       <BrandingEditor

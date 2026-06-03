@@ -21,6 +21,7 @@ export interface TenantMeta {
   trialEndsAt: string | null;
   entitlements: Entitlements;
   leadCap: number | null;
+  abandonedThresholdDays: number;
   branding: {
     name: string;
     logoText: string;
@@ -85,6 +86,7 @@ function toMeta(t: TenantRow): TenantMeta {
     trialEndsAt: t.trialEndsAt ? t.trialEndsAt.toISOString() : null,
     entitlements: t.entitlements as unknown as Entitlements,
     leadCap: t.leadCap ?? null,
+    abandonedThresholdDays: t.abandonedThresholdDays,
     branding: {
       name: b?.name ?? t.name,
       logoText: b?.logoText ?? t.name.toUpperCase(),

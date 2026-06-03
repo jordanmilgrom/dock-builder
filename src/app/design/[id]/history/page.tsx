@@ -34,7 +34,7 @@ export default async function HistoryPage({ params }: { params: { id: string } }
           <Link href={`/design/${design.id}`} className="text-brand hover:underline">← back to configurator</Link>
         </p>
       </div>
-      <RevisionList designId={design.id} revisions={revisions} />
+      <RevisionList designId={design.id} revisions={revisions} audience="customer" />
     </div>
   );
 }

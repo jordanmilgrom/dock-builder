@@ -55,12 +55,17 @@ model Tenant {
   // Lead cap for the current billing period; null = unlimited (Premium).
   leadCap Int?
 
+  // Phase 3: days of inactivity before a captured-but-unsubmitted lead is
+  // DERIVED as abandoned (§10 #7). Per-tenant override, range 1–30.
+  abandonedThresholdDays Int @default(3)
+
   branding        Branding?
   users           User[]
   customers       Customer[]
   designs         Design[]
   revisions       Revision[]
   leads           Lead[]
+  notifications   Notification[]
   pricingProfiles PricingProfile[]
   pricingItems    PricingItem[]
   floatProducts   FloatProduct[]
@@ -197,6 +202,9 @@ model Customer {
   email          String // "" for anonymous until captured
   savedShoreline Json? // SiteConditions
   consent        Json? // Consent
+  // Phase 3: builder's free-text CRM notes about this customer (5,000 char cap
+  // enforced at the API boundary).
+  notes          String?  @db.Text
   createdAt      DateTime @default(now())
 
   designs Design[]
@@ -246,18 +254,44 @@ model Revision {
 }
 
 model Lead {
-  id                    String   @id @default(cuid())
-  tenantId              String
-  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  designId              String   @unique
-  design                Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
-  customerId            String
-  customer              Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  customerContact       Json // { email }
-  consent               Json
-  status                String   @default("started") // Phase 3 introduces full machine
-  abandonedThresholdDays Int?
-  createdAt             DateTime @default(now())
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  designId        String   @unique
+  design          Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerContact Json // { email }
+  consent         Json
+  // §5.4 state machine. The stored value is the persisted state; started→abandoned
+  // is DERIVED on read from lastActivityAt + tenant.abandonedThresholdDays.
+  status          String   @default("started")
+  // Drives the abandoned derivation; bumped on every customer interaction.
+  lastActivityAt  DateTime @default(now())
+  // Set when the customer submits; also distinguishes started vs submitted on backfill.
+  submittedAt     DateTime?
+  // The revision the builder last sent as a quote (re-quote updates this; status stays quoted).
+  quotedRevisionId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+// Phase 3: builder notifications panel (new-lead + abandoned-lead). Delivery
+// (email) is separate (lib/notifications.ts); this row backs the dashboard panel.
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type      String // new_lead | abandoned_lead
+  leadId    String?
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, read])
 }

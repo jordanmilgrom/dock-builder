@@ -1,0 +1,259 @@
+// Dock Configurator SaaS — Phase 2 persistence (multi-tenant).
+//
+// Every tenant-owned entity carries `tenantId`. The application NEVER queries
+// these tables directly — all access goes through `src/lib/tenantScope.ts`,
+// which injects `tenantId` into every read/write so one tenant can never touch
+// another's rows (proven by lib/tenantScope.test.ts).
+//
+// Postgres (Neon in prod, local Postgres in dev/CI). JSON columns hold the
+// engine's framework-free value objects (DockConfig, PricingResult, etc.) so the
+// pure engines in src/engine stay the single source of truth.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant + billing
+// ---------------------------------------------------------------------------
+
+enum SubscriptionTier {
+  starter
+  pro
+  premium
+}
+
+// Stripe-driven lifecycle. `trialing` covers the 14-day free trial.
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+}
+
+model Tenant {
+  id        String   @id // human-readable, e.g. "acme-docks"
+  slug      String   @unique // vanity subdomain: {slug}.app.com
+  name      String
+  createdAt DateTime @default(now())
+
+  // Billing (Stripe is the source of truth; we mirror status + entitlements).
+  tier                 SubscriptionTier   @default(starter)
+  subscriptionStatus   SubscriptionStatus @default(trialing)
+  trialEndsAt          DateTime?
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+
+  // Entitlement booleans derived from the tier (see lib/entitlements.ts).
+  // Stored denormalized on the row so the customer flow reads them cheaply.
+  entitlements Json
+  // Lead cap for the current billing period; null = unlimited (Premium).
+  leadCap Int?
+
+  branding        Branding?
+  users           User[]
+  customers       Customer[]
+  designs         Design[]
+  revisions       Revision[]
+  leads           Lead[]
+  pricingProfiles PricingProfile[]
+  floatProducts   FloatProduct[]
+  deckingProducts DeckingProduct[]
+  accessoryProducts AccessoryProduct[]
+}
+
+// ---------------------------------------------------------------------------
+// Auth (magic-link only; no passwords in Phase 2)
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  platform_admin // tenantId null — runs /admin
+  builder_admin // tenant owner
+  builder_member // tenant staff
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String
+  role      UserRole
+  createdAt DateTime @default(now())
+
+  // platform_admin has no tenant; builder users belong to exactly one.
+  tenantId String?
+  tenant   Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------------------------
+// Branding (§5.2)
+// ---------------------------------------------------------------------------
+
+model Branding {
+  tenantId       String  @id
+  tenant         Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  logoText       String
+  logoUrl        String? // uploaded logo (Phase 2 onboarding)
+  primaryColor   String
+  secondaryColor String
+  removeBadge    Boolean @default(false) // tier-gated by entitlements.removeBadge
+}
+
+// ---------------------------------------------------------------------------
+// Catalog + pricing (§4) — cloned per-tenant from lib/seed.ts at onboarding
+// ---------------------------------------------------------------------------
+
+model PricingProfile {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dockType        String // engine DockType
+  priceVisibility String // engine PriceVisibility
+  currency        String        @default("USD")
+  labor           Json? // { perFt2?, flat? }
+  deliveryBands   Json? // DeliveryBand[]
+  minimumPrice    Float?
+  markupPct       Float?
+  items           PricingItem[]
+
+  @@unique([tenantId, dockType])
+  @@index([tenantId])
+}
+
+model PricingItem {
+  id        String         @id @default(cuid())
+  profileId String
+  profile   PricingProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  key       String
+  unit      String // engine PricingUnit
+  unitPrice Float
+  label     String?
+  enabled   Boolean        @default(true)
+
+  @@index([profileId])
+}
+
+model FloatProduct {
+  id               String  @id @default(cuid())
+  tenantId         String
+  tenant           Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sku              String
+  ratedBuoyancyLbs Float
+  lengthIn         Float
+  widthIn          Float
+  heightIn         Float
+  sealedShell      Boolean @default(true)
+  enabled          Boolean @default(true)
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+}
+
+model DeckingProduct {
+  id            String  @id @default(cuid())
+  tenantId      String
+  tenant        Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  material      String // engine DeckingMaterial
+  label         String
+  upchargePerFt2 Float  @default(0)
+  enabled       Boolean @default(true)
+
+  @@unique([tenantId, material])
+  @@index([tenantId])
+}
+
+model AccessoryProduct {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type      String // engine AccessoryType
+  label     String
+  unitPrice Float
+  enabled   Boolean @default(true)
+
+  @@unique([tenantId, type])
+  @@index([tenantId])
+}
+
+// ---------------------------------------------------------------------------
+// Customer-facing entities (Phase 1 flow, now tenant-scoped)
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email          String // "" for anonymous until captured
+  savedShoreline Json? // SiteConditions
+  consent        Json? // Consent
+  createdAt      DateTime @default(now())
+
+  designs Design[]
+  leads   Lead[]
+
+  @@index([tenantId])
+  @@index([tenantId, email])
+}
+
+model Design {
+  id                String   @id @default(cuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId        String
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  name              String
+  currentRevisionId String   @default("")
+  status            String   @default("draft") // draft | submitted
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  revisions Revision[]
+  lead      Lead?
+
+  @@index([tenantId])
+  @@index([tenantId, customerId])
+}
+
+model Revision {
+  id               String   @id @default(cuid())
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  designId         String
+  design           Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
+  version          Int
+  config           Json // DockConfig (immutable snapshot)
+  schemaVersion    Int
+  estimateSnapshot Json? // PricingResult, frozen at snapshot time
+  authorRole       String // AuthorRole
+  authorId         String
+  changeSummary    String
+  createdAt        DateTime @default(now())
+
+  @@unique([designId, version])
+  @@index([tenantId])
+  @@index([designId])
+}
+
+model Lead {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  designId              String   @unique
+  design                Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
+  customerId            String
+  customer              Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerContact       Json // { email }
+  consent               Json
+  status                String   @default("started") // Phase 3 introduces full machine
+  abandonedThresholdDays Int?
+  createdAt             DateTime @default(now())
+
+  @@index([tenantId])
+}

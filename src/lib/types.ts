@@ -81,8 +81,10 @@ export interface Lead {
 export interface Branding {
   tenantId: string;
   name: string;
-  /** Text logo for Phase 1 (image upload is Phase 2 onboarding). */
+  /** Text logo fallback; an uploaded image (Phase 2 onboarding) wins when set. */
   logoText: string;
+  /** Uploaded logo URL (Phase 2 onboarding). */
+  logoUrl?: string;
   primaryColor: string;
   secondaryColor: string;
   /** "powered by" badge toggle (tier-gated later). */

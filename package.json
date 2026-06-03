@@ -31,10 +31,13 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "next": "^14.2.35",
     "pdfkit": "^0.15.2",
+    "prisma": "^5.22.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "stripe": "^17.7.0"
   }
 }

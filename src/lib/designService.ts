@@ -1,8 +1,12 @@
 /**
- * Design service: orchestrates the engine + store + versioning for the
- * configurator's persistence flows (create, save revision, restore/branch,
- * contact capture). Server-side only. The single place that turns engine
- * output into immutable Revisions (§5.5) — routes stay thin.
+ * Design service: orchestrates the engine + tenant-scoped store + versioning for
+ * the configurator's persistence flows (create, save revision, restore/branch,
+ * contact capture). Server-side only. The single place that turns engine output
+ * into immutable Revisions (§5.5) — routes stay thin.
+ *
+ * Phase 2: every function takes a `TenantScope` (so all reads/writes are
+ * tenant-filtered) and is async (Postgres-backed). The function set and
+ * semantics are unchanged from Phase 1.
  */
 
 import {
@@ -13,15 +17,14 @@ import {
   type SiteConditions,
 } from "@/engine";
 import { generateStartingDesign } from "@/engine";
-import { DEV_TENANT_ID, pricingProfileFor } from "./seed.js";
-import * as store from "./store.js";
+import type { TenantScope } from "./tenantScope.js";
 import type { AuthorRole, Consent, ConsentSource, Design, Revision } from "./types.js";
 import { buildRevision, canCreateDraft } from "./versioning.js";
 
-export function priceConfig(config: DockConfig): PricingResult {
-  return pricingEngine(config, pricingProfileFor(config.dockType), {
-    deliveryDistanceMiles: 30,
-  });
+export async function priceConfig(scope: TenantScope, config: DockConfig): Promise<PricingResult> {
+  const profile = await scope.getPricingProfile(config.dockType);
+  if (!profile) throw new Error(`No pricing profile for dockType "${config.dockType}" in tenant ${scope.tenantId}`);
+  return pricingEngine(config, profile, { deliveryDistanceMiles: 30 });
 }
 
 export interface CreateResult {
@@ -30,24 +33,24 @@ export interface CreateResult {
 }
 
 /** Create a new draft design with a seeded starting design from the site (§5.3). */
-export function createDesignFromSite(
+export async function createDesignFromSite(
+  scope: TenantScope,
   customerId: string,
   site: SiteConditions,
   opts: { name?: string; dockType?: DockConfig["dockType"]; use?: DockConfig["use"] } = {},
-): CreateResult | { error: "draft_cap" } {
-  if (!canCreateDraft(store.countDrafts(customerId))) return { error: "draft_cap" };
+): Promise<CreateResult | { error: "draft_cap" }> {
+  if (!canCreateDraft(await scope.countDrafts(customerId))) return { error: "draft_cap" };
 
   const config = generateStartingDesign(site, {
-    tenantId: DEV_TENANT_ID,
+    tenantId: scope.tenantId,
     ...(opts.dockType ? { dockType: opts.dockType } : {}),
     ...(opts.use ? { use: opts.use } : {}),
   });
 
   // Persist the customer's saved shoreline for next-time auto-fill (§5.6).
-  if (store.getCustomer(customerId)) store.updateCustomer(customerId, { savedShoreline: site });
+  if (await scope.getCustomer(customerId)) await scope.updateCustomer(customerId, { savedShoreline: site });
 
-  const design = store.createDesign({
-    tenantId: DEV_TENANT_ID,
+  const design = await scope.createDesign({
     customerId,
     name: opts.name ?? `${cap(config.dockType)} dock`,
     currentRevisionId: "",
@@ -58,59 +61,62 @@ export function createDesignFromSite(
     designId: design.id,
     previous: null,
     config,
-    estimate: priceConfig(config),
+    estimate: await priceConfig(scope, config),
     authorRole: "customer",
     authorId: customerId,
   });
-  store.addRevision(revision);
-  store.updateDesign(design.id, { currentRevisionId: revision.id });
+  await scope.addRevision(revision);
+  await scope.updateDesign(design.id, { currentRevisionId: revision.id });
   return { design: { ...design, currentRevisionId: revision.id }, revision };
 }
 
 /** Save an edited config as a new immutable revision (§5.5 revise loop). */
-export function saveRevision(
+export async function saveRevision(
+  scope: TenantScope,
   designId: string,
   config: DockConfig,
   authorId: string,
   authorRole: AuthorRole = "customer",
-): Revision | undefined {
-  const design = store.getDesign(designId);
+): Promise<Revision | undefined> {
+  const design = await scope.getDesign(designId);
   if (!design) return undefined;
-  const previous = store.getRevision(design.currentRevisionId) ?? null;
+  const previous = (await scope.getRevision(design.currentRevisionId)) ?? null;
   const revision = buildRevision({
     designId,
     previous,
     config,
-    estimate: priceConfig(config),
+    estimate: await priceConfig(scope, config),
     authorRole,
     authorId,
   });
-  store.addRevision(revision);
-  store.updateDesign(designId, { currentRevisionId: revision.id });
+  await scope.addRevision(revision);
+  await scope.updateDesign(designId, { currentRevisionId: revision.id });
   return revision;
 }
 
 /** Restore or branch from an earlier revision (§5.5). Both create a new head. */
-export function restoreOrBranch(
+export async function restoreOrBranch(
+  scope: TenantScope,
   designId: string,
   fromVersion: number,
   mode: "restore" | "branch",
   authorId: string,
-): Revision | undefined {
-  const source = store.listRevisions(designId).find((r) => r.version === fromVersion);
+): Promise<Revision | undefined> {
+  const source = (await scope.listRevisions(designId)).find((r) => r.version === fromVersion);
   if (!source) return undefined;
-  const previous = store.getRevision(store.getDesign(designId)?.currentRevisionId ?? "") ?? null;
+  const design = await scope.getDesign(designId);
+  const previous = design ? (await scope.getRevision(design.currentRevisionId)) ?? null : null;
   const revision = buildRevision({
     designId,
     previous,
     config: source.config,
-    estimate: priceConfig(source.config),
+    estimate: await priceConfig(scope, source.config),
     authorRole: "customer",
     authorId,
     changeSummary: mode === "restore" ? `Restored v${fromVersion}` : `Branched from v${fromVersion}`,
   });
-  store.addRevision(revision);
-  store.updateDesign(designId, { currentRevisionId: revision.id });
+  await scope.addRevision(revision);
+  await scope.updateDesign(designId, { currentRevisionId: revision.id });
   return revision;
 }
 
@@ -119,20 +125,20 @@ export function restoreOrBranch(
  * and creates a Lead (status "started"). The abandoned threshold is persisted
  * but not yet acted on (Phase 3).
  */
-export function captureContact(
+export async function captureContact(
+  scope: TenantScope,
   customerId: string,
   designId: string,
   email: string,
   optedIn: boolean,
   source: ConsentSource,
-): Consent {
+): Promise<Consent> {
   const consent: Consent = { optedIn, source, timestamp: new Date().toISOString() };
-  store.updateCustomer(customerId, { email, consent });
+  await scope.updateCustomer(customerId, { email, consent });
 
-  const existing = store.findLeadByDesign(designId);
-  store.upsertLead({
-    id: existing?.id ?? store.newId("lead"),
-    tenantId: DEV_TENANT_ID,
+  const existing = await scope.findLeadByDesign(designId);
+  await scope.upsertLead({
+    id: existing?.id ?? `lead_${crypto.randomUUID()}`,
     designId,
     customerId,
     customerContact: { email },
@@ -145,11 +151,11 @@ export function captureContact(
 }
 
 /** Validation + estimate for a config (always engine-derived). */
-export function evaluate(config: DockConfig): {
-  validation: ReturnType<typeof validationEngine>;
-  estimate: PricingResult;
-} {
-  return { validation: validationEngine(config), estimate: priceConfig(config) };
+export async function evaluate(
+  scope: TenantScope,
+  config: DockConfig,
+): Promise<{ validation: ReturnType<typeof validationEngine>; estimate: PricingResult }> {
+  return { validation: validationEngine(config), estimate: await priceConfig(scope, config) };
 }
 
 function cap(s: string): string {

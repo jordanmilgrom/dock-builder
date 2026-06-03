@@ -67,6 +67,7 @@ export async function submitDesign(
     lastActivityAt: now,
   });
   const finalLead = updated ?? lead;
+  await scope.recordEvent("design_submitted", { leadId: finalLead.id, designId });
   await emit(
     scope,
     "new_lead",
@@ -119,6 +120,7 @@ export async function sendQuote(
     status: "quoted",
     quotedRevisionId: headRevisionId,
   });
+  await scope.recordEvent("quote_sent", { leadId, revisionId: headRevisionId });
   const revision = (await scope.getRevision(headRevisionId))!;
   return { lead: updated ?? lead, revision };
 }
@@ -132,7 +134,9 @@ export async function setOutcome(
   const lead = await scope.getLead(leadId);
   if (!lead) return { error: "not_found" };
   if (!canTransition(lead.status, outcome)) return { error: "bad_state" };
-  return (await scope.updateLead(leadId, { status: outcome })) ?? lead;
+  const updated = (await scope.updateLead(leadId, { status: outcome })) ?? lead;
+  if (outcome === "accepted") await scope.recordEvent("lead_accepted", { leadId });
+  return updated;
 }
 
 /** Mark a started lead abandoned (used by the sweep). Idempotent. */

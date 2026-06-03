@@ -4,7 +4,7 @@ import "server-only";
  * enforces ownership so individual routes stay thin. All design access is
  * checked against the tenant scope (cross-tenant ids 404 before reaching data).
  */
-import { requireBuilder } from "./authz.js";
+import { requireBuilder, requireBuilderAdmin } from "./authz.js";
 import { getCustomerSession } from "./session.js";
 import { getTenantContext, loadTenantById, type TenantContext } from "./tenant.js";
 import type { Design } from "./types.js";
@@ -34,6 +34,15 @@ export async function requireBuilderTenant(): Promise<Guard<{ ctx: TenantContext
   const ctx = await loadTenantById(builder.tenantId);
   if (!ctx) return { ok: false, status: 404 };
   return { ok: true, ctx, userId: builder.userId };
+}
+
+/** builder_admin only (billing, team, custom domain) — members get 403. */
+export async function requireBuilderAdminTenant(): Promise<Guard<{ ctx: TenantContext; userId: string }>> {
+  const admin = requireBuilderAdmin();
+  if (!admin) return { ok: false, status: 403 };
+  const ctx = await loadTenantById(admin.tenantId);
+  if (!ctx) return { ok: false, status: 404 };
+  return { ok: true, ctx, userId: admin.userId };
 }
 
 /** Tenant + customer + ownership of a specific design. */

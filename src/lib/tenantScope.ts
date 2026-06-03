@@ -25,10 +25,38 @@ import type {
   Consent,
   Customer,
   Design,
+  EventKind,
   Lead,
   Notification,
   Revision,
+  Template,
 } from "./types.js";
+
+type PrismaProfileWithItems = NonNullable<
+  Awaited<ReturnType<typeof prisma.pricingProfile.findFirst<{ include: { items: true } }>>>
+>;
+
+/** Map a Prisma pricing-profile row (+ enabled items) to the engine profile. */
+function toEngineProfile(p: PrismaProfileWithItems): EnginePricingProfile {
+  return {
+    tenantId: p.tenantId,
+    dockType: p.dockType as EnginePricingProfile["dockType"],
+    priceVisibility: p.priceVisibility as EnginePricingProfile["priceVisibility"],
+    currency: p.currency,
+    items: p.items
+      .filter((it) => it.enabled)
+      .map((it) => ({
+        key: it.key,
+        unit: it.unit as EnginePricingProfile["items"][number]["unit"],
+        unitPrice: it.unitPrice,
+        ...(it.label ? { label: it.label } : {}),
+      })),
+    ...(p.labor ? { labor: p.labor as EnginePricingProfile["labor"] } : {}),
+    ...(p.deliveryBands ? { deliveryBands: p.deliveryBands as unknown as EnginePricingProfile["deliveryBands"] } : {}),
+    ...(p.minimumPrice != null ? { minimumPrice: p.minimumPrice } : {}),
+    ...(p.markupPct != null ? { markupPct: p.markupPct } : {}),
+  };
+}
 
 type Prisma = typeof prisma;
 
@@ -53,6 +81,7 @@ function toDesign(r: NonNullable<Awaited<ReturnType<Prisma["design"]["findFirst"
     name: r.name,
     currentRevisionId: r.currentRevisionId,
     status: r.status as Design["status"],
+    pricingProfileId: r.pricingProfileId ?? null,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
@@ -85,6 +114,17 @@ function toLead(r: NonNullable<Awaited<ReturnType<Prisma["lead"]["findFirst"]>>>
     lastActivityAt: r.lastActivityAt.toISOString(),
     submittedAt: r.submittedAt ? r.submittedAt.toISOString() : null,
     quotedRevisionId: r.quotedRevisionId ?? null,
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+
+function toTemplate(r: NonNullable<Awaited<ReturnType<Prisma["template"]["findFirst"]>>>): Template {
+  return {
+    id: r.id,
+    tenantId: r.tenantId,
+    name: r.name,
+    config: r.config as unknown as Template["config"],
+    createdBy: r.createdBy,
     createdAt: r.createdAt.toISOString(),
   };
 }
@@ -143,7 +183,31 @@ export interface TenantScope {
   // Branding + catalog/pricing
   getBranding(): Promise<Branding | undefined>;
   getPricingProfile(dockType: string): Promise<EnginePricingProfile | undefined>;
+  getPricingProfileById(id: string): Promise<EnginePricingProfile | undefined>;
+  listPricingProfiles(): Promise<PricingProfileSummary[]>;
+  createPricingProfile(input: {
+    name: string;
+    dockType: string;
+    labor?: { perFt2?: number; flat?: number };
+    fromDockType?: string;
+  }): Promise<PricingProfileSummary | undefined>;
   floatCatalog(): Promise<Record<string, FloatSpec>>;
+
+  // Templates (§5.6)
+  createTemplate(input: { name: string; config: DockConfig; createdBy: string }): Promise<Template>;
+  listTemplates(): Promise<Template[]>;
+  getTemplate(id: string): Promise<Template | undefined>;
+
+  // Analytics events (§5.6)
+  recordEvent(kind: EventKind, meta?: Record<string, unknown>): Promise<void>;
+}
+
+export interface PricingProfileSummary {
+  id: string;
+  name: string;
+  dockType: string;
+  isDefault: boolean;
+  priceVisibility: string;
 }
 
 export function createTenantScope(tenantId: string): TenantScope {
@@ -217,6 +281,7 @@ export function createTenantScope(tenantId: string): TenantScope {
           name: input.name,
           currentRevisionId: input.currentRevisionId,
           status: input.status,
+          ...(input.pricingProfileId ? { pricingProfileId: input.pricingProfileId } : {}),
         },
       });
       return toDesign(r);
@@ -226,6 +291,7 @@ export function createTenantScope(tenantId: string): TenantScope {
       if (patch.name !== undefined) data.name = patch.name;
       if (patch.currentRevisionId !== undefined) data.currentRevisionId = patch.currentRevisionId;
       if (patch.status !== undefined) data.status = patch.status;
+      if (patch.pricingProfileId !== undefined) data.pricingProfileId = patch.pricingProfileId;
       const res = await prisma.design.updateMany({ where: { id, tenantId }, data });
       if (res.count === 0) return undefined;
       const r = await prisma.design.findFirst({ where: { id, tenantId } });
@@ -353,27 +419,64 @@ export function createTenantScope(tenantId: string): TenantScope {
       };
     },
     async getPricingProfile(dockType) {
-      const p = await prisma.pricingProfile.findFirst({
-        where: { tenantId, dockType },
-        include: { items: { where: { enabled: true } } },
+      // Prefer the default set; fall back to any profile for the dock type.
+      const p =
+        (await prisma.pricingProfile.findFirst({
+          where: { tenantId, dockType, isDefault: true },
+          include: { items: true },
+        })) ??
+        (await prisma.pricingProfile.findFirst({ where: { tenantId, dockType }, include: { items: true } }));
+      return p ? toEngineProfile(p) : undefined;
+    },
+    async getPricingProfileById(id) {
+      const p = await prisma.pricingProfile.findFirst({ where: { id, tenantId }, include: { items: true } });
+      return p ? toEngineProfile(p) : undefined;
+    },
+    async listPricingProfiles() {
+      const rows = await prisma.pricingProfile.findMany({
+        where: { tenantId },
+        orderBy: [{ isDefault: "desc" }, { name: "asc" }, { dockType: "asc" }],
       });
-      if (!p) return undefined;
-      return {
-        tenantId: p.tenantId,
-        dockType: p.dockType as EnginePricingProfile["dockType"],
-        priceVisibility: p.priceVisibility as EnginePricingProfile["priceVisibility"],
-        currency: p.currency,
-        items: p.items.map((it) => ({
-          key: it.key,
-          unit: it.unit as EnginePricingProfile["items"][number]["unit"],
-          unitPrice: it.unitPrice,
-          ...(it.label ? { label: it.label } : {}),
-        })),
-        ...(p.labor ? { labor: p.labor as EnginePricingProfile["labor"] } : {}),
-        ...(p.deliveryBands ? { deliveryBands: p.deliveryBands as unknown as EnginePricingProfile["deliveryBands"] } : {}),
-        ...(p.minimumPrice != null ? { minimumPrice: p.minimumPrice } : {}),
-        ...(p.markupPct != null ? { markupPct: p.markupPct } : {}),
-      };
+      return rows.map((p) => ({
+        id: p.id,
+        name: p.name,
+        dockType: p.dockType,
+        isDefault: p.isDefault,
+        priceVisibility: p.priceVisibility,
+      }));
+    },
+    async createPricingProfile(input) {
+      // Clone the default profile for the dock type (items + commercial terms).
+      const base = await prisma.pricingProfile.findFirst({
+        where: { tenantId, dockType: input.fromDockType ?? input.dockType, isDefault: true },
+        include: { items: true },
+      });
+      if (!base) return undefined;
+      const created = await prisma.pricingProfile.create({
+        data: {
+          tenantId,
+          name: input.name,
+          isDefault: false,
+          dockType: input.dockType,
+          priceVisibility: base.priceVisibility,
+          currency: base.currency,
+          labor: (input.labor ?? base.labor ?? undefined) as object | undefined,
+          deliveryBands: (base.deliveryBands ?? undefined) as object | undefined,
+          minimumPrice: base.minimumPrice,
+          markupPct: base.markupPct,
+          items: {
+            create: base.items.map((it) => ({
+              tenantId,
+              key: it.key,
+              unit: it.unit,
+              unitPrice: it.unitPrice,
+              ...(it.label ? { label: it.label } : {}),
+              enabled: it.enabled,
+            })),
+          },
+        },
+      });
+      return { id: created.id, name: created.name, dockType: created.dockType, isDefault: created.isDefault, priceVisibility: created.priceVisibility };
     },
     async floatCatalog() {
       const rows = await prisma.floatProduct.findMany({ where: { tenantId, enabled: true } });
@@ -389,6 +492,29 @@ export function createTenantScope(tenantId: string): TenantScope {
         };
       }
       return out;
+    },
+
+    // ---- Templates (§5.6) -------------------------------------------------
+    async createTemplate(input) {
+      const r = await prisma.template.create({
+        data: { tenantId, name: input.name, config: input.config as unknown as object, createdBy: input.createdBy },
+      });
+      return toTemplate(r);
+    },
+    async listTemplates() {
+      const rows = await prisma.template.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" } });
+      return rows.map(toTemplate);
+    },
+    async getTemplate(id) {
+      const r = await prisma.template.findFirst({ where: { id, tenantId } });
+      return r ? toTemplate(r) : undefined;
+    },
+
+    // ---- Analytics events (§5.6) ------------------------------------------
+    async recordEvent(kind, meta) {
+      await prisma.event.create({
+        data: { tenantId, kind, ...(meta ? { meta: meta as object } : {}) },
+      });
     },
   };
 }

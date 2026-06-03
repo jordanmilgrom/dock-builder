@@ -24,7 +24,23 @@ const BOTTOMS: BottomType[] = ["sand", "silt", "mud", "clay", "gravel", "rock"];
 const EXPOSURES: WaveExposure[] = ["sheltered", "inland_lake", "open_water"];
 const DOCK_TYPES: DockType[] = ["floating", "pile", "pipe", "crib", "suspension"];
 
-export default function QuestionnaireForm({ defaultSite }: { defaultSite: SiteConditions | null }) {
+export interface TemplateCard {
+  id: string;
+  name: string;
+  dockType: string;
+}
+
+export default function QuestionnaireForm({
+  defaultSite,
+  basePath = "/design",
+  templates = [],
+}: {
+  defaultSite: SiteConditions | null;
+  /** Where to navigate after a design is created ("/design" or "/embed/design"). */
+  basePath?: string;
+  /** Optional "start from a template" cards (§5.6). */
+  templates?: TemplateCard[];
+}) {
   const router = useRouter();
   const [site, setSite] = useState<SiteConditions>(defaultSite ?? DEFAULT_SITE);
   const [use, setUse] = useState<UseClass>("residential");
@@ -40,27 +56,30 @@ export default function QuestionnaireForm({ defaultSite }: { defaultSite: SiteCo
     return Number.isFinite(n) ? n : fallback;
   }
 
-  async function startDesigning() {
+  async function createDesign(body: Record<string, unknown>) {
     setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/designs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ site, use, dockType: override || undefined }),
+        body: JSON.stringify(body),
       });
       const data = (await res.json()) as { designId?: string; error?: string };
       if (!res.ok || !data.designId) {
         setError(data.error === "draft_cap" ? "You already have 3 saved drafts — delete one to start another." : "Could not start a design.");
         return;
       }
-      router.push(`/design/${data.designId}`);
+      router.push(`${basePath}/${data.designId}`);
     } catch {
       setError("Network error.");
     } finally {
       setBusy(false);
     }
   }
+
+  const startDesigning = () => createDesign({ site, use, dockType: override || undefined });
+  const startFromTemplate = (templateId: string) => createDesign({ templateId });
 
   if (stage === "recommendation") {
     return (
@@ -122,10 +141,30 @@ export default function QuestionnaireForm({ defaultSite }: { defaultSite: SiteCo
   }
 
   return (
-    <form
-      className="grid gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2"
-      onSubmit={(e) => { e.preventDefault(); setStage("recommendation"); }}
-    >
+    <div className="space-y-4">
+      {templates.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-slate-800">Start from a template</h2>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {templates.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => startFromTemplate(t.id)}
+                disabled={busy}
+                className="rounded border border-slate-200 p-3 text-left text-sm hover:border-brand hover:bg-cyan-50 disabled:opacity-50"
+              >
+                <span className="font-medium text-slate-800">{t.name}</span>
+                <span className="block text-xs text-slate-500">{t.dockType} dock</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-slate-400">…or answer a few questions to start from scratch.</p>
+        </div>
+      )}
+      <form
+        className="grid gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2"
+        onSubmit={(e) => { e.preventDefault(); setStage("recommendation"); }}
+      >
       <Field label="Water depth at dock end, low water (ft)">
         <input type="number" step="0.5" min="0" className="input" value={site.depthAtEndLowWaterFt}
           onChange={(e) => setSite({ ...site, depthAtEndLowWaterFt: num(e.target.value, 0) })} />
@@ -163,8 +202,9 @@ export default function QuestionnaireForm({ defaultSite }: { defaultSite: SiteCo
           See recommendation →
         </button>
       </div>
-      <style>{`.input{margin-top:.25rem;display:block;width:100%;border-radius:.375rem;border:1px solid #cbd5e1;padding:.4rem .5rem;font-size:.875rem}`}</style>
-    </form>
+        <style>{`.input{margin-top:.25rem;display:block;width:100%;border-radius:.375rem;border:1px solid #cbd5e1;padding:.4rem .5rem;font-size:.875rem}`}</style>
+      </form>
+    </div>
   );
 }
 

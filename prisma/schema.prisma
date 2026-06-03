@@ -59,6 +59,12 @@ model Tenant {
   // DERIVED as abandoned (§10 #7). Per-tenant override, range 1–30.
   abandonedThresholdDays Int @default(3)
 
+  // Phase 4: custom domain (§5.7, gated by entitlements.customDomain). Resolved
+  // in middleware by indexed lookup; only honored once verified.
+  customDomain           String?   @unique
+  customDomainVerifiedAt DateTime?
+  customDomainTxtToken   String?
+
   branding        Branding?
   users           User[]
   customers       Customer[]
@@ -71,6 +77,9 @@ model Tenant {
   floatProducts   FloatProduct[]
   deckingProducts DeckingProduct[]
   accessoryProducts AccessoryProduct[]
+  templates       Template[]
+  events          Event[]
+  invitations     Invitation[]
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +129,9 @@ model PricingProfile {
   id              String        @id @default(cuid())
   tenantId        String
   tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Phase 4: named profile (e.g. a location). The default set carries isDefault.
+  name            String        @default("Default")
+  isDefault       Boolean       @default(false)
   dockType        String // engine DockType
   priceVisibility String // engine PriceVisibility
   currency        String        @default("USD")
@@ -128,9 +140,11 @@ model PricingProfile {
   minimumPrice    Float?
   markupPct       Float?
   items           PricingItem[]
+  designs         Design[]
 
-  @@unique([tenantId, dockType])
+  @@unique([tenantId, name, dockType])
   @@index([tenantId])
+  @@index([tenantId, dockType])
 }
 
 model PricingItem {
@@ -223,6 +237,9 @@ model Design {
   name              String
   currentRevisionId String   @default("")
   status            String   @default("draft") // draft | submitted
+  // Phase 4: optional pricing profile (Premium multi-profile). Null → tenant default.
+  pricingProfileId  String?
+  pricingProfile    PricingProfile? @relation(fields: [pricingProfileId], references: [id], onDelete: SetNull)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -294,4 +311,48 @@ model Notification {
 
   @@index([tenantId])
   @@index([tenantId, read])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: starter templates, analytics events, team invitations
+// ---------------------------------------------------------------------------
+
+// A saved DockConfig snapshot a customer can "start from" (§5.6). No tier gate.
+model Template {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  config    Json // DockConfig snapshot
+  createdBy String // builder userId
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+// Thin analytics event (§5.6). Compute-on-read roll-ups via getDashboardMetrics.
+model Event {
+  id       String   @id @default(cuid())
+  tenantId String
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind     String // configurator_view | design_started | design_submitted | lead_abandoned | quote_sent | lead_accepted
+  at       DateTime @default(now())
+  meta     Json?
+
+  @@index([tenantId, kind, at])
+}
+
+// Team invitation (§5.6, gated by entitlements.team). Magic-link only.
+model Invitation {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email      String
+  role       UserRole @default(builder_member)
+  token      String   @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId])
 }

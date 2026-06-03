@@ -39,6 +39,7 @@ export async function runAbandonedSweep(now: Date = new Date()): Promise<SweepRe
       leadsScanned += 1;
       if (!isAbandoned("started", l.lastActivityAt, t.abandonedThresholdDays, now)) continue;
       await markAbandoned(scope, l.id);
+      await scope.recordEvent("lead_abandoned", { leadId: l.id });
       abandoned += 1;
       const lead = await scope.getLead(l.id);
       if (lead && (await notifyAbandoned(scope, lead, ent))) notified += 1;

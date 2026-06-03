@@ -8,6 +8,10 @@
  */
 
 export const TENANT_SLUG_HEADER = "x-tenant-slug";
+/** Original hostname when it looks like a custom domain (resolved in node). */
+export const CUSTOM_HOST_HEADER = "x-tenant-customhost";
+/** Request path, so the root layout can drop chrome for the embed iframe. */
+export const PATHNAME_HEADER = "x-pathname";
 
 /** Subdomains that are never tenants (platform surfaces live here). */
 export const RESERVED_SUBDOMAINS = new Set(["www", "app", "admin", "api", "dashboard"]);
@@ -47,4 +51,24 @@ export function parseTenantSlug(
 /** Slugs are DNS-label-ish: lowercase alphanumerics + hyphens, 1–63 chars. */
 export function isValidSlug(slug: string): boolean {
   return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(slug.toLowerCase());
+}
+
+/**
+ * Is this host a custom domain (Phase 4)? It's a candidate when it isn't the app
+ * apex/subdomain, isn't localhost, and there's no explicit `?tenant=` override.
+ * Returns the bare hostname (no port) or null. The actual tenant lookup is a
+ * node-side O(1) query against the indexed `customDomain` column.
+ */
+export function customDomainCandidate(
+  host: string | null | undefined,
+  url: URL,
+  opts: { appDomain: string },
+): string | null {
+  if (url.searchParams.get("tenant")) return null;
+  if (!host) return null;
+  const hostname = host.split(":")[0]!.toLowerCase();
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0") return null;
+  const appDomain = opts.appDomain.toLowerCase();
+  if (hostname === appDomain || hostname.endsWith(`.${appDomain}`)) return null;
+  return hostname;
 }

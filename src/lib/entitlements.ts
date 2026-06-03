@@ -13,15 +13,23 @@
 export type SubscriptionTier = "starter" | "pro" | "premium";
 
 export interface Entitlements {
-  /** Remove the "Powered by" badge on the hosted page + PDF. */
+  /** Remove the "Powered by" badge on the hosted page + PDF (Pro+). */
   removeBadge: boolean;
-  /** Use the tenant's branded PDF template (logo/colors) vs. the standard one. */
+  /** Use the tenant's branded PDF template (logo/colors) vs. the standard one (Pro+). */
   brandedPdf: boolean;
-  /** Record-only in Phase 2; abandoned-lead follow-up behavior unlocks in Phase 3. */
+  /** Abandoned-lead follow-up behavior (Pro+, unlocked in Phase 3). */
   abandonedFollowUp: boolean;
   /** Multiple pricing profiles / multi-location (Premium). */
   multipleProfiles: boolean;
-  /** Record-only in Phase 2; outbound webhooks/integrations unlock in Phase 5. */
+  /** Embeddable widget snippet (Pro+, Phase 4). */
+  embed: boolean;
+  /** Custom-domain configuration (Premium, Phase 4). */
+  customDomain: boolean;
+  /** Analytics dashboard (Premium, Phase 4). */
+  analytics: boolean;
+  /** Invite builder_member teammates (Pro+, Phase 4). */
+  team: boolean;
+  /** Record-only; outbound webhooks/integrations unlock in Phase 5. */
   webhooks: boolean;
 }
 
@@ -41,6 +49,10 @@ const PLANS: Record<SubscriptionTier, TierPlan> = {
       brandedPdf: false,
       abandonedFollowUp: false,
       multipleProfiles: false,
+      embed: false,
+      customDomain: false,
+      analytics: false,
+      team: false,
       webhooks: false,
     },
   },
@@ -50,8 +62,12 @@ const PLANS: Record<SubscriptionTier, TierPlan> = {
     entitlements: {
       removeBadge: true,
       brandedPdf: true,
-      abandonedFollowUp: true, // record-only (Phase 3 unlocks behavior)
+      abandonedFollowUp: true,
       multipleProfiles: false,
+      embed: true, // Phase 4
+      customDomain: false,
+      analytics: false,
+      team: true, // Phase 4
       webhooks: false,
     },
   },
@@ -63,6 +79,10 @@ const PLANS: Record<SubscriptionTier, TierPlan> = {
       brandedPdf: true,
       abandonedFollowUp: true,
       multipleProfiles: true,
+      embed: true,
+      customDomain: true, // Phase 4
+      analytics: true, // Phase 4
+      team: true,
       webhooks: true, // record-only (Phase 5 unlocks behavior)
     },
   },

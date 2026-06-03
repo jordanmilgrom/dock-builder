@@ -6,10 +6,11 @@ import "server-only";
  */
 import { headers } from "next/headers";
 import type { DockType, PricingProfile } from "@/engine";
+import { resolveByCustomDomain } from "./customDomain.js";
 import type { Entitlements, SubscriptionTier } from "./entitlements.js";
 import { prisma } from "./db.js";
 import { DOCK_TYPES } from "./seed.js";
-import { TENANT_SLUG_HEADER } from "./tenantRouting.js";
+import { CUSTOM_HOST_HEADER, TENANT_SLUG_HEADER } from "./tenantRouting.js";
 import { createTenantScope, type TenantScope } from "./tenantScope.js";
 
 export interface TenantMeta {
@@ -54,9 +55,36 @@ export function requestTenantSlug(): string {
   return headers().get(TENANT_SLUG_HEADER) ?? (process.env.DEFAULT_TENANT_SLUG || "acme-docks");
 }
 
-/** The tenant for the current request, or null if the slug resolves to nothing. */
+export type RequestResolution =
+  | { kind: "tenant"; ctx: TenantContext }
+  | { kind: "unverified_domain"; name: string }
+  | { kind: "none" };
+
+/**
+ * Resolve the request's tenant, honoring (in order): a verified custom domain,
+ * then the slug (subdomain/?tenant=/default). An unverified custom domain yields
+ * a placeholder result so the layout can show "Domain not verified yet".
+ */
+export async function getRequestResolution(): Promise<RequestResolution> {
+  const customHost = headers().get(CUSTOM_HOST_HEADER);
+  if (customHost) {
+    const r = await resolveByCustomDomain(customHost);
+    if (r.kind === "verified") {
+      const ctx = await loadTenantById(r.tenantId);
+      if (ctx) return { kind: "tenant", ctx };
+    } else if (r.kind === "unverified") {
+      return { kind: "unverified_domain", name: r.name };
+    }
+    // kind === "none": unknown custom host → fall through to slug resolution.
+  }
+  const ctx = await loadTenantBySlug(requestTenantSlug());
+  return ctx ? { kind: "tenant", ctx } : { kind: "none" };
+}
+
+/** The tenant for the current request, or null if it resolves to nothing. */
 export async function getTenantContext(): Promise<TenantContext | null> {
-  return loadTenantBySlug(requestTenantSlug());
+  const r = await getRequestResolution();
+  return r.kind === "tenant" ? r.ctx : null;
 }
 
 /** Pricing profile per dock type for the client configurator (live preview). */

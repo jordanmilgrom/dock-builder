@@ -22,6 +22,22 @@ export function requireBuilder(): (BuilderSession & { tenantId: string }) | null
   return s as BuilderSession & { tenantId: string };
 }
 
+/**
+ * Pure predicate: only builder_admin can manage billing, team, tier-gated
+ * settings (custom domain), or delete the tenant (§5.6). builder_member is
+ * blocked from those surfaces.
+ */
+export function roleCanAdminister(role: UserRole): boolean {
+  return role === "builder_admin";
+}
+
+/** A builder_admin bound to a tenant; null for members/platform/none. */
+export function requireBuilderAdmin(): (BuilderSession & { tenantId: string }) | null {
+  const s = requireBuilderRole(["builder_admin"]);
+  if (!s || !s.tenantId) return null;
+  return s as BuilderSession & { tenantId: string };
+}
+
 export function requirePlatformAdmin(): BuilderSession | null {
   return requireBuilderRole(["platform_admin"]);
 }

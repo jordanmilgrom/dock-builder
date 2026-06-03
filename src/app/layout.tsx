@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { DISCLAIMER } from "@/lib/seed";
-import { getTenantContext } from "@/lib/tenant";
+import { getRequestResolution } from "@/lib/tenant";
+import { PATHNAME_HEADER } from "@/lib/tenantRouting";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const ctx = await getTenantContext();
-  const name = ctx?.meta.branding.name ?? "Dock Configurator";
+  const r = await getRequestResolution();
+  const name = r.kind === "tenant" ? r.ctx.meta.branding.name : "Dock Configurator";
   return {
     title: `${name} — Dock Configurator`,
     description: "Design your dock, get an instant planning-grade estimate.",
@@ -14,8 +16,42 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const ctx = await getTenantContext();
+  const resolution = await getRequestResolution();
+  const pathname = headers().get(PATHNAME_HEADER) ?? "";
+  const isEmbed = pathname.startsWith("/embed");
+
+  // Custom domain pointed at us but not verified yet (§5.7): friendly placeholder.
+  if (resolution.kind === "unverified_domain") {
+    return (
+      <html lang="en">
+        <body>
+          <div className="mx-auto max-w-lg px-4 py-24 text-center">
+            <h1 className="text-2xl font-bold text-slate-900">Domain not verified yet</h1>
+            <p className="mt-3 text-sm text-slate-600">
+              This domain for <span className="font-semibold">{resolution.name}</span> is being set up.
+              If you’re the builder, finish DNS verification in your dashboard.
+            </p>
+          </div>
+        </body>
+      </html>
+    );
+  }
+
+  const ctx = resolution.kind === "tenant" ? resolution.ctx : null;
   const b = ctx?.meta.branding;
+
+  // Embed iframe: render the configurator with NO header/footer chrome so it
+  // fits cleanly inside the builder's own page.
+  if (isEmbed) {
+    return (
+      <html lang="en">
+        <body>
+          <div className="px-3 py-3">{children}</div>
+        </body>
+      </html>
+    );
+  }
+
   const secondary = b?.secondaryColor ?? "#0f172a";
   const logoText = b?.logoText ?? "DOCK CONFIGURATOR";
   // Badge shows unless the tenant both is entitled to remove it AND has toggled it off.

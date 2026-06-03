@@ -21,8 +21,19 @@ import type { TenantScope } from "./tenantScope.js";
 import type { AuthorRole, Consent, ConsentSource, Design, Revision } from "./types.js";
 import { buildRevision, canCreateDraft } from "./versioning.js";
 
-export async function priceConfig(scope: TenantScope, config: DockConfig): Promise<PricingResult> {
-  const profile = await scope.getPricingProfile(config.dockType);
+export async function priceConfig(
+  scope: TenantScope,
+  config: DockConfig,
+  opts: { pricingProfileId?: string | null } = {},
+): Promise<PricingResult> {
+  let profile;
+  // Premium multi-profile: a design may pin a specific profile. Only honor it
+  // when its dock type matches; otherwise fall back to the tenant default.
+  if (opts.pricingProfileId) {
+    const byId = await scope.getPricingProfileById(opts.pricingProfileId);
+    if (byId && byId.dockType === config.dockType) profile = byId;
+  }
+  if (!profile) profile = await scope.getPricingProfile(config.dockType);
   if (!profile) throw new Error(`No pricing profile for dockType "${config.dockType}" in tenant ${scope.tenantId}`);
   return pricingEngine(config, profile, { deliveryDistanceMiles: 30 });
 }
@@ -50,13 +61,32 @@ export async function createDesignFromSite(
   // Persist the customer's saved shoreline for next-time auto-fill (§5.6).
   if (await scope.getCustomer(customerId)) await scope.updateCustomer(customerId, { savedShoreline: site });
 
-  const design = await scope.createDesign({
-    customerId,
-    name: opts.name ?? `${cap(config.dockType)} dock`,
-    currentRevisionId: "",
-    status: "draft",
-  });
+  return persistNewDesign(scope, customerId, config, opts.name ?? `${cap(config.dockType)} dock`);
+}
 
+/** Create a new draft design from a saved Template's config (§5.6, Phase 4). */
+export async function createDesignFromTemplate(
+  scope: TenantScope,
+  customerId: string,
+  templateId: string,
+  opts: { name?: string } = {},
+): Promise<CreateResult | { error: "draft_cap" | "not_found" }> {
+  const template = await scope.getTemplate(templateId);
+  if (!template) return { error: "not_found" };
+  if (!canCreateDraft(await scope.countDrafts(customerId))) return { error: "draft_cap" };
+  // Re-stamp the config onto this tenant so it can never carry a foreign tenantId.
+  const config: DockConfig = { ...template.config, tenantId: scope.tenantId };
+  return persistNewDesign(scope, customerId, config, opts.name ?? template.name);
+}
+
+/** Shared path: persist a brand-new design + its v1 revision, emit analytics. */
+async function persistNewDesign(
+  scope: TenantScope,
+  customerId: string,
+  config: DockConfig,
+  name: string,
+): Promise<CreateResult> {
+  const design = await scope.createDesign({ customerId, name, currentRevisionId: "", status: "draft" });
   const revision = buildRevision({
     designId: design.id,
     previous: null,
@@ -67,6 +97,7 @@ export async function createDesignFromSite(
   });
   await scope.addRevision(revision);
   await scope.updateDesign(design.id, { currentRevisionId: revision.id });
+  await scope.recordEvent("design_started", { designId: design.id, dockType: config.dockType });
   return { design: { ...design, currentRevisionId: revision.id }, revision };
 }
 
@@ -85,7 +116,7 @@ export async function saveRevision(
     designId,
     previous,
     config,
-    estimate: await priceConfig(scope, config),
+    estimate: await priceConfig(scope, config, { pricingProfileId: design.pricingProfileId }),
     authorRole,
     authorId,
   });
@@ -119,7 +150,7 @@ export async function restoreOrBranch(
     designId,
     previous,
     config: source.config,
-    estimate: await priceConfig(scope, source.config),
+    estimate: await priceConfig(scope, source.config, { pricingProfileId: design?.pricingProfileId }),
     authorRole: "customer",
     authorId,
     changeSummary: mode === "restore" ? `Restored v${fromVersion}` : `Branched from v${fromVersion}`,
@@ -168,8 +199,9 @@ export async function captureContact(
 export async function evaluate(
   scope: TenantScope,
   config: DockConfig,
+  opts: { pricingProfileId?: string | null } = {},
 ): Promise<{ validation: ReturnType<typeof validationEngine>; estimate: PricingResult }> {
-  return { validation: validationEngine(config), estimate: await priceConfig(scope, config) };
+  return { validation: validationEngine(config), estimate: await priceConfig(scope, config, opts) };
 }
 
 function cap(s: string): string {

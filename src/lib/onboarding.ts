@@ -86,6 +86,8 @@ export async function signUpBuilder(
       },
       pricingProfiles: {
         create: catalog.pricingProfiles.map((p) => ({
+          name: "Default",
+          isDefault: true,
           dockType: p.dockType,
           priceVisibility: p.priceVisibility,
           currency: p.currency,

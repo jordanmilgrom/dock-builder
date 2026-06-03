@@ -57,9 +57,30 @@ export interface Design {
   currentRevisionId: string;
   /** Phase 1 only distinguishes draft vs. submitted; full machine is Phase 3. */
   status: "draft" | "submitted";
+  /** Phase 4: optional pricing profile (Premium multi-profile); null → default. */
+  pricingProfileId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+/** A saved DockConfig the customer can "start from" (§5.6, Phase 4). */
+export interface Template {
+  id: string;
+  tenantId: string;
+  name: string;
+  config: DockConfig;
+  createdBy: string;
+  createdAt: string;
+}
+
+/** Analytics event kinds (§5.6, Phase 4). */
+export type EventKind =
+  | "configurator_view"
+  | "design_started"
+  | "design_submitted"
+  | "lead_abandoned"
+  | "quote_sent"
+  | "lead_accepted";
 
 /**
  * A captured Lead and its §5.4 state. `status` is the PERSISTED state; the

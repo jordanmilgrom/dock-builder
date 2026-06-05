@@ -3,6 +3,29 @@
 import { useMemo, useRef, useState } from "react";
 import type { DockPiece, Rotation } from "@/engine";
 
+/** Custom-piece dimension bounds (ft): integer-only, 1–32. */
+export const CUSTOM_DIM_MIN = 1;
+export const CUSTOM_DIM_MAX = 32;
+
+export function isValidCustomDim(n: number): boolean {
+  return Number.isInteger(n) && n >= CUSTOM_DIM_MIN && n <= CUSTOM_DIM_MAX;
+}
+
+/**
+ * Build a piece from the custom-piece modal inputs, or null when invalid.
+ * Pure — shared by the modal and unit tests (no window.prompt anywhere).
+ */
+export function buildCustomPiece(
+  kind: DockPiece["pieceKind"],
+  a: number,
+  b: number,
+): DockPiece | null {
+  if (!isValidCustomDim(a) || !isValidCustomDim(b)) return null;
+  return kind === "right_triangle"
+    ? { pieceKind: "right_triangle", posX: 0, posY: 0, rotationDeg: 0, legAFt: a, legBFt: b }
+    : { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: a, widthFt: b };
+}
+
 /**
  * Drawing canvas (Phase 6). Replaces the single Length×Width form: the customer
  * composes a dock from rectangle + right-triangle pieces, dragging each on a 1 ft
@@ -62,6 +85,7 @@ export default function DockPiecesCanvas({
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selected, setSelected] = useState<number | null>(pieces.length ? 0 : null);
+  const [modal, setModal] = useState<null | DockPiece["pieceKind"]>(null);
   const drag = useRef<{ idx: number; startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   // World extent across all pieces (+ padding) for the viewBox.
@@ -167,15 +191,17 @@ export default function DockPiecesCanvas({
         <Btn onClick={() => addPiece({ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 20, widthFt: 8 })}>+ Rectangle 8×20</Btn>
         <Btn onClick={() => addPiece({ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 8, widthFt: 8 })}>+ Rectangle 8×8</Btn>
         <Btn onClick={() => addPiece({ pieceKind: "right_triangle", posX: 0, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 4 })}>+ Triangle 4×4</Btn>
-        <Btn onClick={() => {
-          const l = Number(prompt("Length (ft)?", "16")); const w = Number(prompt("Width (ft)?", "8"));
-          if (l > 0 && w > 0) addPiece({ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: l, widthFt: w });
-        }}>+ Custom rectangle…</Btn>
-        <Btn onClick={() => {
-          const a = Number(prompt("Leg A (ft)?", "6")); const b = Number(prompt("Leg B (ft)?", "4"));
-          if (a > 0 && b > 0) addPiece({ pieceKind: "right_triangle", posX: 0, posY: 0, rotationDeg: 0, legAFt: a, legBFt: b });
-        }}>+ Custom triangle…</Btn>
+        <Btn onClick={() => setModal("rectangle")}>+ Custom rectangle…</Btn>
+        <Btn onClick={() => setModal("right_triangle")}>+ Custom triangle…</Btn>
       </div>
+
+      {modal && (
+        <CustomPieceModal
+          kind={modal}
+          onCancel={() => setModal(null)}
+          onAdd={(piece) => { addPiece(piece); setModal(null); }}
+        />
+      )}
 
       <svg
         ref={svgRef}
@@ -232,5 +258,63 @@ function Btn({ onClick, children }: { onClick: () => void; children: React.React
     <button onClick={onClick} className="rounded border border-slate-300 bg-white px-2 py-1 font-medium text-slate-600 hover:border-brand hover:bg-cyan-50">
       {children}
     </button>
+  );
+}
+
+/** Inline modal for custom rectangle/triangle dimensions (replaces window.prompt). */
+function CustomPieceModal({
+  kind,
+  onCancel,
+  onAdd,
+}: {
+  kind: DockPiece["pieceKind"];
+  onCancel: () => void;
+  onAdd: (piece: DockPiece) => void;
+}) {
+  const isTri = kind === "right_triangle";
+  const [a, setA] = useState(isTri ? 6 : 16);
+  const [b, setB] = useState(isTri ? 4 : 8);
+  const piece = buildCustomPiece(kind, a, b);
+
+  return (
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/30 p-4" role="dialog" aria-label="Custom piece">
+      <div className="w-full max-w-xs rounded-lg bg-white p-4 shadow-xl">
+        <h3 className="text-sm font-semibold text-slate-800">
+          {isTri ? "Custom right triangle" : "Custom rectangle"}
+        </h3>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <DimField label={isTri ? "Leg A (ft)" : "Length (ft)"} value={a} onChange={setA} />
+          <DimField label={isTri ? "Leg B (ft)" : "Width (ft)"} value={b} onChange={setB} />
+        </div>
+        <p className="mt-1 text-xs text-slate-400">Whole feet, {CUSTOM_DIM_MIN}–{CUSTOM_DIM_MAX}.</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
+          <button
+            onClick={() => piece && onAdd(piece)}
+            disabled={!piece}
+            className="rounded bg-brand px-4 py-1.5 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DimField({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
+  return (
+    <label className="block text-sm">
+      <span className="text-slate-600">{label}</span>
+      <input
+        type="number"
+        step={1}
+        min={CUSTOM_DIM_MIN}
+        max={CUSTOM_DIM_MAX}
+        value={value}
+        onChange={(e) => onChange(Math.round(Number(e.target.value)))}
+        className="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+      />
+    </label>
   );
 }

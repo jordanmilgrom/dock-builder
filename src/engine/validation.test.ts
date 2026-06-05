@@ -137,6 +137,25 @@ describe("validationEngine — sectioning (§3.3)", () => {
   });
 });
 
+describe("validationEngine — connector triangles (Phase 6)", () => {
+  it("warns (advisory) when a triangle shares no edge with a rectangle", () => {
+    const c = clone(canonicalFloatingConfig);
+    c.pieces = [{ pieceKind: "right_triangle", posX: 0, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 4 }];
+    const result = validationEngine(c);
+    expect(codes(result.warnings)).toContain("triangle_isolated");
+    expect(result.ok).toBe(true); // advisory, never an error
+  });
+
+  it("does NOT warn when the triangle abuts a rectangle edge", () => {
+    const c = clone(canonicalFloatingConfig);
+    c.pieces = [
+      { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 24, widthFt: 6 },
+      { pieceKind: "right_triangle", posX: 24, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 4 },
+    ];
+    expect(codes(validationEngine(c).warnings)).not.toContain("triangle_isolated");
+  });
+});
+
 describe("validationEngine — gangway geometry (§3.4)", () => {
   it("errors on a residential slope past the comfort ceiling", () => {
     const c = clone(canonicalFloatingConfig);

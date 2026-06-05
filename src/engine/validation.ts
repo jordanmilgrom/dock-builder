@@ -34,7 +34,7 @@ import {
   pilingCount,
   requiredBuoyancyLbs,
 } from "./geometry.js";
-import { bayFtFor, pieceCantilever, resolvePieces } from "./pieces.js";
+import { bayFtFor, bboxesShareEdge, pieceBBox, pieceCantilever, resolvePieces } from "./pieces.js";
 import type {
   DockConfig,
   ValidationIssue,
@@ -173,6 +173,24 @@ export function validationEngine(config: DockConfig): ValidationResult {
         "width_below_two_way",
         `Section ${p.idx + 1} width ${p.widthFt} ft is below the ${MIN_WIDTH_FT.twoWayTraffic} ft two-way-traffic minimum.`,
         `pieces[${p.idx}].widthFt`,
+      );
+    }
+  }
+
+  // --- Phase 6: connector triangles need an adjacent rectangle ------------
+  // Right triangles carry no float/pile of their own (they cut corners / bridge
+  // sections). One that shares no edge with a rectangle has no buoyancy/support
+  // source — advisory only.
+  const bboxes = pieces.map((p) => ({ kind: p.kind, bbox: pieceBBox(p) }));
+  for (let i = 0; i < bboxes.length; i++) {
+    const me = bboxes[i]!;
+    if (me.kind !== "right_triangle") continue;
+    const adjacent = bboxes.some((o, j) => j !== i && o.kind === "rectangle" && bboxesShareEdge(me.bbox, o.bbox));
+    if (!adjacent) {
+      warn(
+        "triangle_isolated",
+        `Triangle piece ${i + 1} doesn't share an edge with a rectangle — connector triangles draw buoyancy/support from an adjacent rectangle. Attach it to a rectangle piece.`,
+        `pieces[${i}]`,
       );
     }
   }

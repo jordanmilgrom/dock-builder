@@ -38,8 +38,14 @@ export {
   allFloatPositions,
   allPilePositions,
   pieceCantilever,
+  pieceBBox,
+  bboxesShareEdge,
+  floatFootprintFor,
+  insetFloatToFootprint,
+  FLOAT_FOOTPRINT_FT,
   bayFtFor,
 } from "./pieces.js";
+export type { BBox } from "./pieces.js";
 export type { NormalizedPiece } from "./pieces.js";
 export { recommendDockType } from "./recommendation.js";
 export type { Recommendation } from "./recommendation.js";

@@ -95,6 +95,34 @@ export interface DockSection {
   floats?: FloatPlacement[];
 }
 
+// ---------------------------------------------------------------------------
+// Phase 6: multi-piece geometry (§ real-world docks are composed of pieces)
+// ---------------------------------------------------------------------------
+
+export type PieceKind = "rectangle" | "right_triangle";
+/** Only square rotations are supported (§ Phase 6 out-of-scope: arbitrary angles). */
+export type Rotation = 0 | 90 | 180 | 270;
+
+/**
+ * One drawn piece of a dock. Origin (posX, posY) in feet, rotated in 90° steps.
+ * A rectangle uses lengthFt × widthFt; a right triangle uses legAFt (along the
+ * rotation-aligned x axis) and legBFt (along y) with the hypotenuse implied.
+ */
+export interface DockPiece {
+  pieceKind: PieceKind;
+  posX: number;
+  posY: number;
+  rotationDeg: Rotation;
+  /** Rectangle dimensions. */
+  lengthFt?: number;
+  widthFt?: number;
+  /** Right-triangle legs. */
+  legAFt?: number;
+  legBFt?: number;
+  /** Optional manually-placed floats (world-independent, piece-local feet). */
+  floats?: FloatPlacement[];
+}
+
 export interface FloatSpec {
   sku: string;
   /** Manufacturer working buoyancy rating, pounds. */
@@ -141,6 +169,8 @@ export interface OverallConfig {
   joistSize?: JoistSize;
   /** Joist spacing on-center, inches. Defaults derived per material/orientation. */
   joistSpacingIn?: number;
+  /** Phase 6: pile bay grid (ft) deck dimensions must snap to. Default 8, range 4–10. */
+  bayFt?: number;
 }
 
 export interface DockConfig {
@@ -150,6 +180,9 @@ export interface DockConfig {
   use: UseClass;
   site: SiteConditions;
   overall: OverallConfig;
+  /** Phase 6: the drawn pieces. When present, supersedes `sections`/`overall` geometry. */
+  pieces?: DockPiece[];
+  /** Pre-Phase-6 chained-rectangle sections (read via back-compat shim). */
   sections?: DockSection[];
   gangway?: GangwayConfig;
   accessories?: AccessoryConfig[];

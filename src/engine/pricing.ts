@@ -15,9 +15,9 @@ import {
   floatCount,
   gangwayLengthFt,
   pilingCount,
-  resolveSections,
   connectorCount,
 } from "./geometry.js";
+import { resolvePieces } from "./pieces.js";
 import type {
   AccessoryConfig,
   DockConfig,
@@ -42,7 +42,7 @@ export interface BillableQuantities {
  */
 export function billableQuantities(config: DockConfig): BillableQuantities {
   const area = deckAreaFt2(config);
-  const { sections } = resolveSections(config);
+  const pieceCount = resolvePieces(config).length;
 
   const q: BillableQuantities = {
     frame_per_ft2: area,
@@ -52,7 +52,7 @@ export function billableQuantities(config: DockConfig): BillableQuantities {
   if (config.dockType === "floating") {
     q.flotation_per_float = floatCount(config);
     q.flotation_per_ft2 = area;
-    const connectors = connectorCount(sections.length);
+    const connectors = connectorCount(pieceCount);
     if (connectors > 0) q.connector_each = connectors;
   }
 

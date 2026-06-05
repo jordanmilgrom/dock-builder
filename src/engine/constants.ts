@@ -71,10 +71,48 @@ export const EXPOSURE_DESIGN_FACTOR: Record<WaveExposure, number> = {
   open_water: 0.4,
 };
 
-/** Float placement rules (§3.1). */
+/**
+ * Float placement rules.
+ *
+ * Phase 6 departs from the literal §3.1 wording ("two rows when wider than ~6
+ * ft") to match industry practice: TWO ROWS MINIMUM at any practical width, a
+ * float at every piece corner, and ≤ 8 ft spacing within a row. Sources:
+ *   - Dock Builders Supply — float spacing & corner-float guidance
+ *     (https://www.dockbuilders.com/)
+ *   - NyDock / PolyDock modular layout guidance (https://nydock.com/)
+ *   - BARR Plastics flotation sizing (https://www.barrplastics.com/)
+ *   - ABYC float/stability guidance (general)
+ * Row formula: rowCount = max(2, floor(widthFt / 6) + 1)  → 5–11 ft: 2 rows,
+ * 12 ft: 3 rows, 18 ft: 4 rows ("add a row per 6 ft above 6 ft"). The loose
+ * `ceil(w/6)` wording undercounts at 12/18 ft, so we use the floor+1 step that
+ * matches the cited examples. See PHASE6.md for the full rationale.
+ */
 export const FLOAT_PLACEMENT = {
   maxSpacingFt: 8,
-  twoRowsAboveWidthFt: 6,
+  /** Below this width a piece still gets the 2-row minimum. */
+  twoRowMinWidthFt: 5,
+  /** Each full 6 ft of width beyond the first adds a row. */
+  rowStepFt: 6,
+  /** Target max spacing between adjacent rows (ft). */
+  maxRowSpacingFt: 6,
+} as const;
+
+/** Phase 6 float-row count: 2 minimum, +1 per full 6 ft of width. */
+export function floatRowCount(widthFt: number): number {
+  return Math.max(2, Math.floor(widthFt / FLOAT_PLACEMENT.rowStepFt) + 1);
+}
+
+/**
+ * Pile bay grid (Phase 6). Piles sit at every piece corner and on this grid;
+ * deck dimensions must align to it (no cantilever past the pile line — real
+ * residential pile docks don't overhang). Default 8 ft; configurable 4–10.
+ */
+export const PILE_BAY = {
+  defaultFt: 8,
+  minFt: 4,
+  maxFt: 10,
+  /** Dimension-vs-grid tolerance (ft) before flagging pile_cantilever. */
+  toleranceFt: 0.25,
 } as const;
 
 /** Default per-float rated buoyancy (lbs) when no SKU spec is resolved. */

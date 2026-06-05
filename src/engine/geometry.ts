@@ -11,8 +11,6 @@ import {
   CLEAT,
   DEFAULT_FLOAT,
   DEFAULT_JOIST_SIZE,
-  EXPOSURE_DESIGN_FACTOR,
-  FLOAT_PLACEMENT,
   FLOTATION_MULTIPLIER,
   FLOTATION_MULTIPLIER_BY_DECKING,
   FLOTATION_MULTIPLIER_DEFAULT,
@@ -23,6 +21,13 @@ import {
   STRUCTURE_WEIGHT_LB_PER_FT2,
   SUBMERGENCE,
 } from "./constants.js";
+import {
+  allFloatPositions,
+  allPilePositions,
+  pieceAreaFt2,
+  resolvePieces,
+  type PlacementFt,
+} from "./pieces.js";
 import type {
   DockConfig,
   DockSection,
@@ -30,20 +35,16 @@ import type {
   JoistSize,
 } from "./types.js";
 
+export type { PlacementFt };
+
 const round = (n: number, dp = 2): number => {
   const f = 10 ** dp;
   return Math.round(n * f) / f;
 };
 
-/** Effective deck area in ft² (sum of section areas, or overall as fallback). */
+/** Effective deck area in ft² — sum over all pieces (triangles = legA·legB/2). */
 export function deckAreaFt2(config: DockConfig): number {
-  const sections = config.sections;
-  if (sections && sections.length > 0) {
-    return round(
-      sections.reduce((sum, s) => sum + s.lengthFt * s.widthFt, 0),
-    );
-  }
-  return round(config.overall.lengthFt * config.overall.widthFt);
+  return round(resolvePieces(config).reduce((sum, p) => sum + pieceAreaFt2(p), 0));
 }
 
 /** Default joist spacing for the config (orientation-driven), §3.2. */
@@ -90,7 +91,7 @@ function resolveFloatSpec(config: DockConfig): Pick<
 > {
   const catalog = config.floatCatalog;
   // Prefer a SKU referenced on the first placed float, then any catalog entry.
-  const firstPlaced = config.sections?.[0]?.floats?.[0]?.sku;
+  const firstPlaced = config.pieces?.[0]?.floats?.[0]?.sku ?? config.sections?.[0]?.floats?.[0]?.sku;
   if (firstPlaced && catalog?.[firstPlaced]) {
     return catalog[firstPlaced]!;
   }
@@ -101,34 +102,22 @@ function resolveFloatSpec(config: DockConfig): Pick<
   return DEFAULT_FLOAT;
 }
 
-/** Per-float usable buoyancy after the exposure design factor (§3.1). */
-function usablePerFloatLbs(config: DockConfig, ratedBuoyancyLbs: number): number {
-  // Rougher water uses a smaller usable fraction of each float's rating, so it
-  // needs more floats. inland_lake is the calibration baseline (factor 1.0) at
-  // which the quick-method multiplier lands at the full rating.
-  const factor =
-    EXPOSURE_DESIGN_FACTOR.inland_lake /
-    EXPOSURE_DESIGN_FACTOR[config.site.waveExposure];
-  return ratedBuoyancyLbs * factor;
-}
-
-/** Number of floats actually placed in the config (0 if none). */
+/** Number of floats manually placed in the config (0 if none). */
 function placedFloatCount(config: DockConfig): number {
-  const { sections } = resolveSections(config);
-  return sections.reduce((sum, s) => sum + (s.floats?.length ?? 0), 0);
+  const fromPieces = (config.pieces ?? []).reduce((sum, p) => sum + (p.floats?.length ?? 0), 0);
+  const fromSections = (config.sections ?? []).reduce((sum, s) => sum + (s.floats?.length ?? 0), 0);
+  return fromPieces + fromSections;
 }
 
 /**
- * Suggested float count = ceil(required buoyancy / per-float usable buoyancy),
- * exposure-adjusted (§3.1).
+ * Suggested float count (Phase 6): placement-driven — the number of float
+ * positions the industry layout requires (two rows minimum, corner floats,
+ * ≤ 8 ft spacing) summed across pieces. Replaces the old buoyancy-only count;
+ * buoyancy adequacy is still checked via freeboard/submergence.
  */
 export function floatCount(config: DockConfig): number {
   if (config.dockType !== "floating") return 0;
-  const required = requiredBuoyancyLbs(config);
-  const float = resolveFloatSpec(config);
-  const perFloat = usablePerFloatLbs(config, float.ratedBuoyancyLbs);
-  if (perFloat <= 0) return 0;
-  return Math.max(0, Math.ceil(required / perFloat));
+  return allFloatPositions(config).length;
 }
 
 /**
@@ -233,65 +222,26 @@ export function gangwaySlopePct(config: DockConfig): number | null {
   return round((1 / ratio) * 100, 1);
 }
 
-/** A position in dock-local feet: x along the length (from shore), y across. */
-export interface PlacementFt {
-  xFt: number;
-  yFt: number;
-}
-
 /**
- * Suggested float positions for a floating dock (§3.1). Distributes the
- * engine's float count across one or two rows (two when wider than ~6 ft),
- * spaced along the length. This is the single source of placement geometry —
- * the blueprint generator renders these rather than inventing its own.
+ * Suggested float positions for a floating dock — the aggregate of every piece's
+ * Phase 6 layout (two rows minimum, corner floats, ≤ 8 ft spacing). World feet.
+ * The single source of placement geometry the blueprint/3D renderers consume.
  */
 export function suggestedFloatLayout(config: DockConfig): PlacementFt[] {
-  if (config.dockType !== "floating") return [];
-  const n = floatCount(config);
-  if (n <= 0) return [];
-  const { lengthFt, widthFt } = config.overall;
-  const rows = widthFt > FLOAT_PLACEMENT.twoRowsAboveWidthFt ? 2 : 1;
-  const cols = Math.ceil(n / rows);
-  const positions: PlacementFt[] = [];
-  let placed = 0;
-  for (let r = 0; r < rows && placed < n; r++) {
-    const yFt = round((widthFt * (r + 1)) / (rows + 1));
-    for (let c = 0; c < cols && placed < n; c++) {
-      const xFt = round((lengthFt * (c + 0.5)) / cols);
-      positions.push({ xFt, yFt });
-      placed++;
-    }
-  }
-  return positions;
+  return allFloatPositions(config);
 }
 
 /**
- * Suggested pile positions for a fixed dock: support lines spaced by the joist
- * span, with 2 piles per bent (3 when wider than ~6 ft). Single source of
- * placement geometry for both the count and the blueprint.
+ * Suggested pile positions for a fixed dock — the aggregate of every piece's
+ * corner + bay-grid piles (no cantilever). World feet.
  */
 export function suggestedPileLayout(config: DockConfig): PlacementFt[] {
-  if (config.dockType === "floating" || config.dockType === "suspension") {
-    return [];
-  }
-  const { lengthFt, widthFt } = config.overall;
-  const span = maxJoistSpanFt(config);
-  const supportLines = Math.max(2, Math.ceil(lengthFt / span) + 1);
-  const pilesPerLine = widthFt > FLOAT_PLACEMENT.twoRowsAboveWidthFt ? 3 : 2;
-  const positions: PlacementFt[] = [];
-  for (let i = 0; i < supportLines; i++) {
-    const xFt = round((lengthFt * i) / (supportLines - 1));
-    for (let p = 0; p < pilesPerLine; p++) {
-      const yFt = round((widthFt * p) / (pilesPerLine - 1));
-      positions.push({ xFt, yFt });
-    }
-  }
-  return positions;
+  return allPilePositions(config);
 }
 
-/** Suggested piling count for fixed docks (§3.2/§3.3 bays from joist span). */
+/** Suggested piling count for fixed docks (corner + bay-grid piles per piece). */
 export function pilingCount(config: DockConfig): number {
-  return suggestedPileLayout(config).length;
+  return allPilePositions(config).length;
 }
 
 /** Suggested cleat count from edge perimeter spacing (§3.5). */

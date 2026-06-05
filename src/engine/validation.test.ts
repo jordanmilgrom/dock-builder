@@ -27,7 +27,7 @@ describe("validationEngine — canonical floating dock", () => {
   it("reports the full derived-metrics bundle", () => {
     expect(result.derived.deckAreaFt2).toBe(240);
     expect(result.derived.requiredBuoyancyLbs).toBe(7440);
-    expect(result.derived.floatCount).toBe(8);
+    expect(result.derived.floatCount).toBe(16);
     expect(result.derived.sectionCount).toBe(2);
     expect(result.derived.gangwayLengthFt).toBe(36);
     expect(result.derived.estFreeboardIn).not.toBeNull();
@@ -104,11 +104,19 @@ describe("validationEngine — joist rules (§3.2)", () => {
     expect(result.autoFixes.join(" ")).toMatch(/pile bents/i);
   });
 
-  it("errors when a user-declared fixed bay exceeds span", () => {
+  it("errors when the pile bay exceeds the joist span (Phase 6 bay model)", () => {
     const c = clone(compliantFixedConfig);
-    c.sections = [{ lengthFt: 30, widthFt: 5 }]; // declared 30 ft bay > 10 ft span
+    c.overall.joistSize = "2x6"; // 2x6 @ 16in OC → 8 ft span
+    c.overall.bayFt = 10; // 10 ft bay can't be joisted by a 2x6
     const result = validationEngine(c);
     expect(codes(result.errors)).toContain("joist_span_exceeded");
+  });
+
+  it("errors when a pile-dock run cantilevers past the bay grid (Phase 6)", () => {
+    const c = clone(compliantFixedConfig);
+    c.pieces = [{ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 17, widthFt: 8 }];
+    const result = validationEngine(c);
+    expect(codes(result.errors)).toContain("pile_cantilever");
   });
 });
 

@@ -32,8 +32,40 @@ export interface SceneBox {
   color: string;
   /** Deck footprint: rectangles render as a box, triangles as an extruded prism. */
   footprint?: "rectangle" | "triangle";
-  /** For triangle decks — local right-triangle legs + world placement to extrude. */
-  tri?: { legAFt: number; legBFt: number; posX: number; posY: number; rotationDeg: number };
+  /** For triangle decks — the 3 WORLD corner points (feet, top-down) to extrude.
+   *  Identical to the 2D canvas via the shared `triangleVertices` convention. */
+  tri?: { vertices: [number, number][]; legAFt: number; legBFt: number; posX: number; posY: number; rotationDeg: number };
+}
+
+/**
+ * The 3 world corner points (feet, top-down) of a right-triangle piece — the
+ * SINGLE convention shared by the 2D canvas and the 3D scene so they always
+ * match. Convention: v0=(posX,posY), v1=(posX+legA,posY), v2=(posX,posY+legB)
+ * BEFORE rotation; the whole triangle then rotates by rotationDeg around v0.
+ * (Identical to the engine's pieceWorldPolygon for triangles.)
+ */
+export function triangleVertices(
+  legAFt: number,
+  legBFt: number,
+  posX: number,
+  posY: number,
+  rotationDeg: number,
+): [number, number][] {
+  const rot = (x: number, y: number): [number, number] =>
+    rotationDeg === 90 ? [-y, x] : rotationDeg === 180 ? [-x, -y] : rotationDeg === 270 ? [y, -x] : [x, y];
+  const local: [number, number][] = [[0, 0], [legAFt, 0], [0, legBFt]];
+  return local.map(([x, y]) => {
+    const [rx, ry] = rot(x, y);
+    return [posX + rx, posY + ry];
+  });
+}
+
+/** Clamp a center so a box of `ext` stays fully within [min, max]; centers if it can't fit. */
+function clampInside(v: number, min: number, max: number, ext: number): number {
+  const lo = min + ext / 2;
+  const hi = max - ext / 2;
+  if (lo > hi) return (min + max) / 2;
+  return Math.min(Math.max(v, lo), hi);
 }
 
 export interface SceneSpec {
@@ -51,7 +83,9 @@ export interface SceneColors {
 const DEFAULT_COLORS: SceneColors = { deck: "#b08968", float: "#0e7490", pile: "#475569", gangway: "#94a3b8" };
 
 const DECK_THICK_FT = 0.5;
-const FLOAT_H_FT = 16 / 12; // a 16-inch poly float
+const FLOAT_H_FT = 16 / 12; // a 16-inch-tall poly float
+const FLOAT_L_FT = 48 / 12; // 48 in long (along the row / length axis)
+const FLOAT_W_FT = 24 / 12; // 24 in wide (across the rows)
 
 /**
  * Build the box list for a design (Phase 6 + 3D polish). Water sits at y = 0.
@@ -99,14 +133,31 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
       footprint: piece.kind === "right_triangle" ? "triangle" : "rectangle",
     };
     if (piece.kind === "right_triangle") {
-      deckBox.tri = { legAFt: piece.legAFt, legBFt: piece.legBFt, posX: piece.posX, posY: piece.posY, rotationDeg: piece.rotationDeg };
+      deckBox.tri = {
+        vertices: triangleVertices(piece.legAFt, piece.legBFt, piece.posX, piece.posY, piece.rotationDeg),
+        legAFt: piece.legAFt, legBFt: piece.legBFt, posX: piece.posX, posY: piece.posY, rotationDeg: piece.rotationDeg,
+      };
     }
     boxes.push(deckBox);
 
     if (floating) {
+      // A rotated piece's row axis swaps, so the float's long side follows it.
+      const rotated = piece.rotationDeg === 90 || piece.rotationDeg === 270;
+      const floatW = rotated ? FLOAT_W_FT : FLOAT_L_FT; // X extent
+      const floatD = rotated ? FLOAT_L_FT : FLOAT_W_FT; // Z extent
       for (const f of floatLayoutForPiece(piece)) {
-        // Float top == deck bottom; the float hangs DOWN into the water.
-        boxes.push({ kind: "float", x: f.xFt, y: deckBottomY - FLOAT_H_FT / 2, z: f.yFt, w: 3.5, h: FLOAT_H_FT, d: 1.8, color: colors.float });
+        // Float top == deck bottom (hangs DOWN into the water); inset edge/corner
+        // floats so the whole box lies under the deck footprint (no overhang).
+        boxes.push({
+          kind: "float",
+          x: clampInside(f.xFt, minX, maxX, floatW),
+          y: deckBottomY - FLOAT_H_FT / 2,
+          z: clampInside(f.yFt, minZ, maxZ, floatD),
+          w: floatW,
+          h: FLOAT_H_FT,
+          d: floatD,
+          color: colors.float,
+        });
       }
     } else if (config.dockType !== "suspension") {
       for (const p of pileLayoutForPiece(piece, bay)) {

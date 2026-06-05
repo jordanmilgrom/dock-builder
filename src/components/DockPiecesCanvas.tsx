@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { DockPiece, Rotation } from "@/engine";
+import { triangleVertices } from "@/lib/view3d";
 
 /** Custom-piece dimension bounds (ft): integer-only, 1–32. */
 export const CUSTOM_DIM_MIN = 1;
@@ -55,6 +56,11 @@ function cornersLocal(p: DockPiece): [number, number][] {
 }
 
 function worldCorners(p: DockPiece): [number, number][] {
+  // Triangles route through the SHARED helper so the 2D canvas and the 3D scene
+  // draw the exact same three corners for any (posX, posY, rotationDeg).
+  if (p.pieceKind === "right_triangle") {
+    return triangleVertices(p.legAFt ?? 0, p.legBFt ?? 0, p.posX, p.posY, p.rotationDeg);
+  }
   return cornersLocal(p).map(([x, y]) => {
     const [rx, ry] = rot(x, y, p.rotationDeg);
     return [p.posX + rx, p.posY + ry];

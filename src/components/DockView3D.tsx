@@ -70,19 +70,24 @@ export default function DockView3D({ config, primaryColor }: { config: DockConfi
       for (const b of spec.boxes) {
         const mat = new THREE.MeshStandardMaterial({ color: b.color });
         if (b.footprint === "triangle" && b.tri) {
-          // Right-triangle deck → extruded triangular prism (not a box).
-          const t = b.tri;
-          const shape = new THREE.Shape();
-          shape.moveTo(0, 0);
-          shape.lineTo(t.legAFt, 0);
-          shape.lineTo(0, t.legBFt);
-          shape.lineTo(0, 0);
-          const geo = new THREE.ExtrudeGeometry(shape, { depth: b.h, bevelEnabled: false });
-          geo.rotateX(-Math.PI / 2); // lay the footprint flat (XZ), extrude up (+Y)
-          const mesh = new THREE.Mesh(geo, mat);
-          mesh.rotation.y = -(t.rotationDeg * Math.PI) / 180;
-          mesh.position.set(t.posX, b.y - b.h / 2, t.posY); // sit the base at the deck bottom
-          scene.add(mesh);
+          // Right-triangle deck → triangular prism built from the SHARED world
+          // vertices (identical to the 2D canvas), so orientation always matches.
+          const v = b.tri.vertices;
+          const yb = b.y - b.h / 2;
+          const yt = b.y + b.h / 2;
+          const P = (i: number, y: number): [number, number, number] => [v[i]![0], y, v[i]![1]];
+          const tris: [number, number, number][] = [
+            P(0, yt), P(1, yt), P(2, yt), // top face
+            P(0, yb), P(2, yb), P(1, yb), // bottom face
+          ];
+          for (const [i, j] of [[0, 1], [1, 2], [2, 0]] as const) {
+            tris.push(P(i, yb), P(j, yb), P(j, yt), P(i, yb), P(j, yt), P(i, yt)); // side quad
+          }
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute("position", new THREE.Float32BufferAttribute(tris.flat(), 3));
+          geo.computeVertexNormals();
+          mat.side = THREE.DoubleSide;
+          scene.add(new THREE.Mesh(geo, mat));
         } else {
           const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), mat);
           mesh.position.set(b.x, b.y, b.z);

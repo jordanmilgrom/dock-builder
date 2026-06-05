@@ -17,22 +17,19 @@ describe("right-triangle pieces (Phase 6)", () => {
     expect(deckAreaFt2(c2)).toBe(8 * 6 + (6 * 4) / 2); // 60
   });
 
-  it("a triangle gets a float at each of its 3 corners", () => {
+  it("a triangle is a connector: it carries NO floats of its own", () => {
     const piece = resolvePieces({ ...canonicalFloatingConfig, pieces: [tri(4, 4)] })[0]!;
-    const floats = floatLayoutForPiece(piece);
-    for (const corner of [{ xFt: 0, yFt: 0 }, { xFt: 4, yFt: 0 }, { xFt: 0, yFt: 4 }]) {
-      expect(floats.some((f) => Math.abs(f.xFt - corner.xFt) < 0.01 && Math.abs(f.yFt - corner.yFt) < 0.01)).toBe(true);
-    }
+    expect(floatLayoutForPiece(piece)).toEqual([]);
   });
 
-  it("a small triangle gets a pile at each of its 3 corners", () => {
+  it("a triangle is a connector: it carries NO piles of its own", () => {
     const c = clone(compliantFixedConfig);
     c.overall.bayFt = 8;
     c.pieces = [tri(4, 4)];
     const piece = resolvePieces(c)[0]!;
-    const piles = pileLayoutForPiece(piece, 8);
-    expect(piles).toHaveLength(3); // 4×4 triangle on an 8 ft grid → corners only
-    expect(validationEngine(c).ok).toBe(true); // triangles are cantilever-exempt
+    expect(pileLayoutForPiece(piece, 8)).toEqual([]);
+    // The triangle is still cantilever-exempt (no error from the bay grid).
+    expect(validationEngine(c).errors.map((e) => e.code)).not.toContain("pile_cantilever");
   });
 
   it("area helper is consistent for triangles and rectangles", () => {

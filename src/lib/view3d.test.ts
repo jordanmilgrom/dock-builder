@@ -96,8 +96,10 @@ describe("3D polish — floats under the deck + triangle prisms", () => {
     expect(triDeck).toBeDefined();
     expect(triDeck!.tri).toMatchObject({ legAFt: 4, legBFt: 4, posX: 24, posY: 0, rotationDeg: 0 });
 
-    // Floats follow the engine layout: 8 on the rectangle + 3 on the triangle corners.
-    expect(spec.boxes.filter((b) => b.kind === "float")).toHaveLength(8 + 3);
+    // Floats follow the engine layout: 8 on the rectangle; the connector triangle
+    // carries none of its own (it still renders as a deck prism).
+    expect(spec.boxes.filter((b) => b.kind === "float")).toHaveLength(8);
+    expect(triDeck!.footprint).toBe("triangle");
   });
 
   it("BUG A — no float box pokes out past its deck footprint (top-down)", () => {

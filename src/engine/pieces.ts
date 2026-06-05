@@ -145,6 +145,36 @@ export function pieceWorldPolygon(p: NormalizedPiece): PlacementFt[] {
   return pieceCornersLocal(p).map(([x, y]) => toWorld(p, x, y));
 }
 
+export interface BBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/** World bounding box of a single piece. */
+export function pieceBBox(p: NormalizedPiece): BBox {
+  const poly = pieceWorldPolygon(p);
+  const xs = poly.map((q) => q.xFt);
+  const ys = poly.map((q) => q.yFt);
+  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+}
+
+/**
+ * Do two piece bounding boxes share an EDGE SEGMENT (not just a corner point)?
+ * True when they overlap interior, or abut on one axis while overlapping with
+ * positive length on the other. Used to decide whether a connector triangle has
+ * an adjacent rectangle to draw support/buoyancy from.
+ */
+export function bboxesShareEdge(a: BBox, b: BBox, tol = 0.01): boolean {
+  const xOverlap = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
+  const yOverlap = Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY);
+  if (xOverlap > tol && yOverlap > tol) return true; // overlapping footprints
+  if (Math.abs(xOverlap) <= tol && yOverlap > tol) return true; // abut vertically, share a vertical edge
+  if (Math.abs(yOverlap) <= tol && xOverlap > tol) return true; // abut horizontally, share a horizontal edge
+  return false;
+}
+
 /** World bounding box across all pieces (for view framing). */
 export function worldBounds(pieces: NormalizedPiece[]): { minX: number; minY: number; maxX: number; maxY: number } {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -174,19 +204,15 @@ function spread(len: number, maxSpacing: number, min: number): number[] {
  * Float positions for one piece (Phase 6 industry rule): two rows minimum, +1
  * row per full 6 ft of width, a float at every corner, ≤ 8 ft along each row.
  */
+/**
+ * Float positions for one piece. Right triangles are CONNECTOR pieces (corner
+ * cuts / bridges between rectangles) — they carry no flotation of their own; the
+ * adjacent rectangle's floats (sized to the whole deck area) support them. So a
+ * triangle returns no float positions.
+ */
 export function floatLayoutForPiece(p: NormalizedPiece): PlacementFt[] {
+  if (p.kind === "right_triangle") return [];
   const max = FLOAT_PLACEMENT.maxSpacingFt;
-  if (p.kind === "right_triangle") {
-    const out: PlacementFt[] = [
-      toWorld(p, 0, 0),
-      toWorld(p, p.legAFt, 0),
-      toWorld(p, 0, p.legBFt),
-    ];
-    // Intermediate floats along each leg at ≤ 8 ft (corners already placed).
-    for (let x = max; x < p.legAFt - 0.01; x += max) out.push(toWorld(p, round(x), 0));
-    for (let y = max; y < p.legBFt - 0.01; y += max) out.push(toWorld(p, 0, round(y)));
-    return out;
-  }
   const rows = floatRowCount(p.widthFt);
   const xs = spread(p.lengthFt, max, 2); // corners + ≤ 8 ft along length
   const out: PlacementFt[] = [];
@@ -201,6 +227,35 @@ export function floatLayoutForPiece(p: NormalizedPiece): PlacementFt[] {
 export function allFloatPositions(config: DockConfig): PlacementFt[] {
   if (config.dockType !== "floating") return [];
   return resolvePieces(config).flatMap(floatLayoutForPiece);
+}
+
+/** A float symbol's footprint (ft): 48"×24", swapped for 90°/270° pieces. */
+export const FLOAT_FOOTPRINT_FT = { lengthFt: 48 / 12, widthFt: 24 / 12 } as const;
+
+export function floatFootprintFor(p: NormalizedPiece): { extX: number; extZ: number } {
+  const rotated = p.rotationDeg === 90 || p.rotationDeg === 270;
+  return {
+    extX: rotated ? FLOAT_FOOTPRINT_FT.widthFt : FLOAT_FOOTPRINT_FT.lengthFt,
+    extZ: rotated ? FLOAT_FOOTPRINT_FT.lengthFt : FLOAT_FOOTPRINT_FT.widthFt,
+  };
+}
+
+function clampRange(v: number, min: number, max: number, ext: number): number {
+  const lo = min + ext / 2;
+  const hi = max - ext / 2;
+  if (lo > hi) return (min + max) / 2;
+  return Math.min(Math.max(v, lo), hi);
+}
+
+/**
+ * Inset a float center so its whole footprint lies within the piece's deck
+ * outline (engine layout returns edge/corner points that would otherwise hang
+ * half-out). The SINGLE helper both the 3D viewer and the 2D blueprint call.
+ */
+export function insetFloatToFootprint(pos: PlacementFt, p: NormalizedPiece): PlacementFt {
+  const b = pieceBBox(p);
+  const { extX, extZ } = floatFootprintFor(p);
+  return { xFt: clampRange(pos.xFt, b.minX, b.maxX, extX), yFt: clampRange(pos.yFt, b.minY, b.maxY, extZ) };
 }
 
 // ---- pile layout -----------------------------------------------------------
@@ -225,20 +280,9 @@ export function bayFtFor(config: DockConfig): number {
  * overhang — dimensions are expected to align to the grid (validated elsewhere).
  */
 export function pileLayoutForPiece(p: NormalizedPiece, bay: number): PlacementFt[] {
-  if (p.kind === "right_triangle") {
-    const out: PlacementFt[] = [
-      toWorld(p, 0, 0),
-      toWorld(p, p.legAFt, 0),
-      toWorld(p, 0, p.legBFt),
-    ];
-    // Internal grid piles strictly inside the triangle (x/a + y/b < 1).
-    for (let x = bay; x < p.legAFt - 0.01; x += bay) {
-      for (let y = bay; y < p.legBFt - 0.01; y += bay) {
-        if (x / p.legAFt + y / p.legBFt < 1 - 1e-9) out.push(toWorld(p, round(x), round(y)));
-      }
-    }
-    return out;
-  }
+  // Right triangles are connectors — the adjacent rectangle's piles support them;
+  // no pile is placed on the triangle itself.
+  if (p.kind === "right_triangle") return [];
   const xs = gridTicks(p.lengthFt, bay);
   const ys = gridTicks(p.widthFt, bay);
   const out: PlacementFt[] = [];

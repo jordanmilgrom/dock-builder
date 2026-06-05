@@ -95,4 +95,21 @@ describe("pricingEngine — minimum, delivery bands, and notes", () => {
     const result = pricingEngine(canonicalFloatingConfig, profile);
     expect(result.notes.join(" ")).toMatch(/may not apply/);
   });
+
+  it("a connector triangle adds deck area but not float quantity (Phase 6)", () => {
+    // Rectangle 24×6 alone vs. 24×6 + Δ4×4 connector.
+    const rectOnly = clone(canonicalFloatingConfig);
+    rectOnly.pieces = [{ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 24, widthFt: 6 }];
+    const withTri = clone(rectOnly);
+    withTri.pieces = [
+      { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 24, widthFt: 6 },
+      { pieceKind: "right_triangle", posX: 24, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 4 },
+    ];
+    const q1 = billableQuantities(rectOnly);
+    const q2 = billableQuantities(withTri);
+    // Frame/decking area grows by the triangle's 8 ft²…
+    expect(q2.frame_per_ft2).toBe((q1.frame_per_ft2 ?? 0) + 8);
+    // …but the float quantity is unchanged (no floats placed on the triangle).
+    expect(q2.flotation_per_float).toBe(q1.flotation_per_float);
+  });
 });

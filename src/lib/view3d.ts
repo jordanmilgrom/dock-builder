@@ -10,8 +10,10 @@
 
 import {
   bayFtFor,
+  floatFootprintFor,
   floatLayoutForPiece,
   freeboard,
+  insetFloatToFootprint,
   pieceWorldPolygon,
   pileLayoutForPiece,
   resolvePieces,
@@ -60,14 +62,6 @@ export function triangleVertices(
   });
 }
 
-/** Clamp a center so a box of `ext` stays fully within [min, max]; centers if it can't fit. */
-function clampInside(v: number, min: number, max: number, ext: number): number {
-  const lo = min + ext / 2;
-  const hi = max - ext / 2;
-  if (lo > hi) return (min + max) / 2;
-  return Math.min(Math.max(v, lo), hi);
-}
-
 export interface SceneSpec {
   boxes: SceneBox[];
   bounds: { lengthFt: number; widthFt: number };
@@ -84,8 +78,6 @@ const DEFAULT_COLORS: SceneColors = { deck: "#b08968", float: "#0e7490", pile: "
 
 const DECK_THICK_FT = 0.5;
 const FLOAT_H_FT = 16 / 12; // a 16-inch-tall poly float
-const FLOAT_L_FT = 48 / 12; // 48 in long (along the row / length axis)
-const FLOAT_W_FT = 24 / 12; // 24 in wide (across the rows)
 
 /**
  * Build the box list for a design (Phase 6 + 3D polish). Water sits at y = 0.
@@ -141,18 +133,16 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
     boxes.push(deckBox);
 
     if (floating) {
-      // A rotated piece's row axis swaps, so the float's long side follows it.
-      const rotated = piece.rotationDeg === 90 || piece.rotationDeg === 270;
-      const floatW = rotated ? FLOAT_W_FT : FLOAT_L_FT; // X extent
-      const floatD = rotated ? FLOAT_L_FT : FLOAT_W_FT; // Z extent
+      const { extX: floatW, extZ: floatD } = floatFootprintFor(piece);
       for (const f of floatLayoutForPiece(piece)) {
-        // Float top == deck bottom (hangs DOWN into the water); inset edge/corner
-        // floats so the whole box lies under the deck footprint (no overhang).
+        // Float top == deck bottom (hangs DOWN into the water); the shared engine
+        // helper insets edge/corner floats so the box stays under the footprint.
+        const inset = insetFloatToFootprint(f, piece);
         boxes.push({
           kind: "float",
-          x: clampInside(f.xFt, minX, maxX, floatW),
+          x: inset.xFt,
           y: deckBottomY - FLOAT_H_FT / 2,
-          z: clampInside(f.yFt, minZ, maxZ, floatD),
+          z: inset.yFt,
           w: floatW,
           h: FLOAT_H_FT,
           d: floatD,

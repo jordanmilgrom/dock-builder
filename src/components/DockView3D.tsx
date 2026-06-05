@@ -68,11 +68,26 @@ export default function DockView3D({ config, primaryColor }: { config: DockConfi
       scene.add(dir);
 
       for (const b of spec.boxes) {
-        const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
         const mat = new THREE.MeshStandardMaterial({ color: b.color });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(b.x, b.y, b.z);
-        scene.add(mesh);
+        if (b.footprint === "triangle" && b.tri) {
+          // Right-triangle deck → extruded triangular prism (not a box).
+          const t = b.tri;
+          const shape = new THREE.Shape();
+          shape.moveTo(0, 0);
+          shape.lineTo(t.legAFt, 0);
+          shape.lineTo(0, t.legBFt);
+          shape.lineTo(0, 0);
+          const geo = new THREE.ExtrudeGeometry(shape, { depth: b.h, bevelEnabled: false });
+          geo.rotateX(-Math.PI / 2); // lay the footprint flat (XZ), extrude up (+Y)
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.rotation.y = -(t.rotationDeg * Math.PI) / 180;
+          mesh.position.set(t.posX, b.y - b.h / 2, t.posY); // sit the base at the deck bottom
+          scene.add(mesh);
+        } else {
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), mat);
+          mesh.position.set(b.x, b.y, b.z);
+          scene.add(mesh);
+        }
       }
       // Water plane.
       const water = new THREE.Mesh(

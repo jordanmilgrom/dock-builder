@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateStartingDesign } from "@/engine";
+import { generateStartingDesign, type DockConfig } from "@/engine";
 import { buildSceneSpec, isThreeAvailable } from "@/lib/view3d";
 
 const SITE = {
@@ -43,6 +43,65 @@ describe("buildSceneSpec (3D, reads the same DockConfig)", () => {
     expect(spec.boxes.find((b) => b.kind === "float")?.color).toBe("#123456");
   });
 });
+
+describe("3D polish — floats under the deck + triangle prisms", () => {
+  const floatingBase = (): DockConfig => generateStartingDesign(SITE, { tenantId: "t", dockType: "floating" });
+
+  it("every float's TOP sits at or below the deck bottom (floats hang underneath)", () => {
+    const spec = buildSceneSpec(floatingBase());
+    const deckBottom = Math.min(...spec.boxes.filter((b) => b.kind === "deck").map((d) => d.y - d.h / 2));
+    const floats = spec.boxes.filter((b) => b.kind === "float");
+    expect(floats.length).toBeGreaterThan(0);
+    for (const f of floats) {
+      const floatTop = f.y + f.h / 2;
+      expect(floatTop).toBeLessThanOrEqual(deckBottom + 1e-9);
+    }
+  });
+
+  it("most of each float is submerged below the waterline (y = 0)", () => {
+    const spec = buildSceneSpec(floatingBase());
+    for (const f of spec.boxes.filter((b) => b.kind === "float")) {
+      const top = f.y + f.h / 2;
+      const bottom = f.y - f.h / 2;
+      const submerged = Math.min(0, top) - bottom; // depth below the waterline
+      expect(bottom).toBeLessThan(0); // hangs into the water
+      expect(submerged).toBeGreaterThanOrEqual(f.h / 2); // ≥ half under water
+    }
+  });
+
+  it("canonical 24×6 floating dock → 8 floats, all under the deck plane", () => {
+    const config = generateStartingDesign(SITE, { tenantId: "t", dockType: "floating" });
+    expect(config.overall.lengthFt).toBe(24);
+    expect(config.overall.widthFt).toBe(6);
+    const spec = buildSceneSpec(config);
+    const floats = spec.boxes.filter((b) => b.kind === "float");
+    expect(floats).toHaveLength(8); // 2 rows × 4 columns
+    const deckBottom = spec.boxes.find((b) => b.kind === "deck")!.y - DECK_HALF;
+    expect(floats.every((f) => f.y + f.h / 2 <= deckBottom + 1e-9)).toBe(true);
+  });
+
+  it("a right-triangle piece emits a triangular-footprint deck entry (not a box)", () => {
+    const lShape: DockConfig = {
+      ...floatingBase(),
+      pieces: [
+        { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 24, widthFt: 6 },
+        { pieceKind: "right_triangle", posX: 24, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 4 },
+      ],
+    };
+    const spec = buildSceneSpec(lShape);
+    const decks = spec.boxes.filter((b) => b.kind === "deck");
+    const rectDeck = decks.find((d) => d.footprint === "rectangle");
+    const triDeck = decks.find((d) => d.footprint === "triangle");
+    expect(rectDeck).toBeDefined();
+    expect(triDeck).toBeDefined();
+    expect(triDeck!.tri).toMatchObject({ legAFt: 4, legBFt: 4, posX: 24, posY: 0, rotationDeg: 0 });
+
+    // Floats follow the engine layout: 8 on the rectangle + 3 on the triangle corners.
+    expect(spec.boxes.filter((b) => b.kind === "float")).toHaveLength(8 + 3);
+  });
+});
+
+const DECK_HALF = 0.25; // half of the 0.5 ft deck thickness
 
 describe("Three.js availability + SSR safety", () => {
   it("reports Three.js unavailable in a non-browser (Node) context", () => {

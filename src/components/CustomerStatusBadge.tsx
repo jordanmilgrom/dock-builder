@@ -35,9 +35,13 @@ export default function CustomerStatusBadge({
   if (!status) {
     return <span className="rounded px-1.5 py-0.5 text-xs bg-slate-100 text-slate-500">Draft</span>;
   }
+  // A "started" (captured but unsubmitted) lead has no customer-facing label
+  // (§5.4) — render nothing rather than an empty pill.
+  const label = leadStatusLabel(status, "customer");
+  if (!label) return null;
   return (
     <span className={`rounded px-1.5 py-0.5 text-xs ${TONE[status]}`}>
-      {leadStatusLabel(status, "customer")}
+      {label}
     </span>
   );
 }

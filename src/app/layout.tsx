@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
+import { shouldShowBadge } from "@/lib/badgeGate";
 import { DISCLAIMER } from "@/lib/seed";
 import { getRequestResolution } from "@/lib/tenant";
 import { PATHNAME_HEADER } from "@/lib/tenantRouting";
 import "./globals.css";
+
+const BADGE = "Powered by Dock Configurator";
 
 export async function generateMetadata(): Promise<Metadata> {
   const r = await getRequestResolution();
@@ -39,14 +42,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   const ctx = resolution.kind === "tenant" ? resolution.ctx : null;
   const b = ctx?.meta.branding;
+  // Single gate consulted by both the hosted footer and the embed iframe.
+  const showBadge = shouldShowBadge(ctx?.meta.entitlements, b);
 
-  // Embed iframe: render the configurator with NO header/footer chrome so it
-  // fits cleanly inside the builder's own page.
+  // Embed iframe: no header/footer chrome so it fits inside the builder's page —
+  // but still carry the "Powered by" badge unless the tenant is entitled + toggled.
   if (isEmbed) {
     return (
       <html lang="en">
         <body>
           <div className="px-3 py-3">{children}</div>
+          {showBadge && (
+            <p className="px-3 pb-2 text-right text-[10px] text-slate-400">· {BADGE}</p>
+          )}
         </body>
       </html>
     );
@@ -54,8 +62,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   const secondary = b?.secondaryColor ?? "#0f172a";
   const logoText = b?.logoText ?? "DOCK CONFIGURATOR";
-  // Badge shows unless the tenant both is entitled to remove it AND has toggled it off.
-  const showBadge = !(ctx?.meta.entitlements.removeBadge && b?.removeBadge);
 
   return (
     <html lang="en">
@@ -74,7 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
         <footer className="mx-auto max-w-6xl px-4 py-8 text-xs text-slate-500">
           {DISCLAIMER}
-          {showBadge && <span className="ml-2 text-slate-400">· Powered by Dock Configurator</span>}
+          {showBadge && <span className="ml-2 text-slate-400">· {BADGE}</span>}
         </footer>
       </body>
     </html>

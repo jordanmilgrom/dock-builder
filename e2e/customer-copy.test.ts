@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { LEAD_STATES, leadStatusLabel } from "@/lib/leadStatus";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -39,5 +40,23 @@ describe("customer copy never leaks Won/Lost (§5.4)", () => {
       if (/\b(won|lost)\b/i.test(src)) offenders.push(rel);
     }
     expect(offenders, `Won/Lost found in: ${offenders.join(", ")}`).toEqual([]);
+  });
+
+  it("never renders the mid-state 'In progress' label to a customer (§5.4)", () => {
+    // No customer-facing source hard-codes the old mid-state copy.
+    const offenders: string[] = [];
+    for (const rel of CUSTOMER_FILES) {
+      let src: string;
+      try { src = readFileSync(resolve(ROOT, rel), "utf8"); } catch { continue; }
+      if (/in progress/i.test(src)) offenders.push(rel);
+    }
+    expect(offenders, `'In progress' found in: ${offenders.join(", ")}`).toEqual([]);
+
+    // And no customer-audience status label is "In progress" for any state — a
+    // "started" lead has no customer-facing label at all.
+    for (const s of LEAD_STATES) {
+      expect(leadStatusLabel(s, "customer")).not.toBe("In progress");
+    }
+    expect(leadStatusLabel("started", "customer")).toBe("");
   });
 });

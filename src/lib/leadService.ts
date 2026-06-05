@@ -114,9 +114,12 @@ export async function sendQuote(
   leadId: string,
   builderUserId: string,
   opts: { config?: DockConfig } = {},
-): Promise<{ lead: Lead; revision: Revision } | { error: "not_found" | "bad_state" }> {
+): Promise<{ lead: Lead; revision: Revision } | { error: "not_found" | "bad_state" | "precondition_not_submitted" }> {
   const lead = await scope.getLead(leadId);
   if (!lead) return { error: "not_found" };
+  // A quote can't be sent before the customer submits (§5.4): started/abandoned
+  // leads must submit first. Other terminal states are an invalid transition.
+  if (lead.status === "started" || lead.status === "abandoned") return { error: "precondition_not_submitted" };
   if (!["submitted", "in_review", "quoted"].includes(lead.status)) return { error: "bad_state" };
 
   // Optionally revise the design as a builder-authored revision.

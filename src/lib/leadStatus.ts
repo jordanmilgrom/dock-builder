@@ -88,7 +88,8 @@ interface Labels {
 
 // Dual vocabulary (§5.4). Customer copy is deliberately free of Won/Lost.
 const LABELS: Record<LeadStatus, Labels> = {
-  started: { builder: "In progress", customer: "In progress" },
+  // The customer's pre-submission draft carries no builder-side status badge.
+  started: { builder: "Started", customer: "" },
   abandoned: { builder: "Abandoned — follow up", customer: "Saved — resume anytime" },
   submitted: { builder: "New — submitted", customer: "Submitted — awaiting review" },
   in_review: { builder: "In review", customer: "Being reviewed" },

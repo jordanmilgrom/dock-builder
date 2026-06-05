@@ -51,6 +51,9 @@ export async function seedAcme(): Promise<string> {
       leadCap: leadCapForTier("premium"),
     },
   });
+  // Premium → turn the white-label badge toggle on so the badge is actually
+  // hidden across the hosted page + embed (both entitlement AND branding gate).
+  await prisma.branding.update({ where: { tenantId: ACME_TENANT_ID }, data: { removeBadge: true } });
 
   // Seed a single starter template (idempotent).
   const scope = createTenantScope(ACME_TENANT_ID);

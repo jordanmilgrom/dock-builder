@@ -42,6 +42,7 @@ export default function Configurator({
   alreadySubmitted = false,
   threeDEnabled = false,
   primaryColor,
+  quotable = true,
 }: {
   designId: string;
   initialConfig: DockConfig;
@@ -58,6 +59,8 @@ export default function Configurator({
   /** Pro+ → interactive 3D toggle; Starter → flat schematic only (§8 item 3). */
   threeDEnabled?: boolean;
   primaryColor?: string;
+  /** Builder mode: false when the lead hasn't been submitted yet (started/abandoned). */
+  quotable?: boolean;
 }) {
   const isBuilder = mode === "builder";
   const [config, setConfig] = useState<DockConfig>(initialConfig);
@@ -175,7 +178,7 @@ export default function Configurator({
   }
 
   async function handleSendQuote() {
-    if (hasErrors || !leadId) return;
+    if (hasErrors || !leadId || !quotable) return;
     setBusy(true);
     setStatus(null);
     try {
@@ -273,7 +276,12 @@ export default function Configurator({
 
         <div className="flex flex-wrap items-center gap-3">
           {isBuilder ? (
-            <button onClick={handleSendQuote} disabled={busy || hasErrors} className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50">
+            <button
+              onClick={handleSendQuote}
+              disabled={busy || hasErrors || !quotable}
+              title={!quotable ? "Customer hasn't submitted this design yet — you can revise after submission." : undefined}
+              className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50"
+            >
               {busy ? "Sending…" : "Send quote"}
             </button>
           ) : (

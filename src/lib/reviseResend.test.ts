@@ -54,10 +54,18 @@ describe("revise-and-resend loop (§5.5)", () => {
     expect(builderRev.createdAt).toBeTruthy();
   });
 
-  it("rejects a quote from a pre-submission state", async () => {
+  it("rejects a quote on a started lead with precondition_not_submitted", async () => {
     const scope = await makeTenant("revise-co-2", { tier: "pro" });
+    const seed = await seedCapturedLead(scope); // still "started"
+    const res = await sendQuote(scope, seed.leadId, "u1");
+    expect(res).toEqual({ error: "precondition_not_submitted" });
+  });
+
+  it("also rejects a quote on an abandoned lead with precondition_not_submitted", async () => {
+    const scope = await makeTenant("revise-co-3", { tier: "pro" });
     const seed = await seedCapturedLead(scope);
-    const res = await sendQuote(scope, seed.leadId, "u1"); // still "started"
-    expect(res).toEqual({ error: "bad_state" });
+    await scope.updateLead(seed.leadId, { status: "abandoned" });
+    const res = await sendQuote(scope, seed.leadId, "u1");
+    expect(res).toEqual({ error: "precondition_not_submitted" });
   });
 });

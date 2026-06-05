@@ -57,11 +57,18 @@ describe("derived started → abandoned (§10 #7)", () => {
 });
 
 describe("dual vocabulary (§5.4) — customer never sees Won/Lost", () => {
-  it("maps every state for both audiences", () => {
+  it("maps every state for the builder; customer has a label for every state except 'started'", () => {
     for (const s of LEAD_STATES) {
       expect(leadStatusLabel(s, "builder")).toBeTruthy();
-      expect(leadStatusLabel(s, "customer")).toBeTruthy();
+      if (s !== "started") expect(leadStatusLabel(s, "customer")).toBeTruthy();
     }
+  });
+
+  it("'started' uses the exact §5.4 labels: builder 'Started', customer '' (no badge)", () => {
+    expect(leadStatusLabel("started", "builder")).toBe("Started");
+    expect(leadStatusLabel("started", "customer")).toBe("");
+    // It must NOT regress to a mid-state label leaking to the customer.
+    expect(leadStatusLabel("started", "customer")).not.toBe("In progress");
   });
 
   it("customer copy contains no Won/Lost/Abandoned for ANY state", () => {

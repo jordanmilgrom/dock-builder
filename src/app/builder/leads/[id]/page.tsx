@@ -90,6 +90,7 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
             leadId={lead.id}
             threeDEnabled={ctx.meta.entitlements.fullThreeD}
             primaryColor={ctx.meta.branding.primaryColor}
+            quotable={derived !== "started" && derived !== "abandoned"}
           />
         )}
       </div>

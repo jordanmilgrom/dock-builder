@@ -13,6 +13,8 @@ import {
   type PricingProfile,
 } from "@/engine";
 import Design3DToggle from "./Design3DToggle";
+import DockPiecesCanvas from "./DockPiecesCanvas";
+import type { DockPiece, Rotation } from "@/engine";
 import SaveGate, { type CaptureResult } from "./SaveGate";
 
 const DOCK_TYPES: DockType[] = ["floating", "pile", "pipe", "crib", "suspension"];
@@ -88,6 +90,16 @@ export default function Configurator({
     setDirty(true);
     setStatus(null);
   }
+  // Phase 6: the drawn pieces (back-compat: derive one rectangle from overall).
+  const pieces: DockPiece[] = config.pieces ?? [
+    { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: config.overall.lengthFt, widthFt: config.overall.widthFt },
+  ];
+  const setPieces = (next: DockPiece[]) =>
+    update((c) => {
+      const b = piecesBounds(next);
+      return { ...c, pieces: next, overall: { ...c.overall, lengthFt: b.lengthFt, widthFt: b.widthFt } };
+    });
+
   const setOverall = (patch: Partial<DockConfig["overall"]>) =>
     update((c) => ({ ...c, overall: { ...c.overall, ...patch } }));
   const setSite = (patch: Partial<DockConfig["site"]>) =>
@@ -207,10 +219,12 @@ export default function Configurator({
             <Sel label="Dock type" value={config.dockType} options={DOCK_TYPES} onChange={(v) => update((c) => ({ ...c, dockType: v as DockType }))} />
             <Sel label="Use" value={config.use} options={["residential", "commercial"]} onChange={(v) => update((c) => ({ ...c, use: v as DockConfig["use"] }))} />
           </Row>
-          <Row>
-            <Num label="Length (ft)" value={config.overall.lengthFt} onChange={(n) => setOverall({ lengthFt: n })} />
-            <Num label="Width (ft)" value={config.overall.widthFt} onChange={(n) => setOverall({ widthFt: n })} />
-          </Row>
+          <div>
+            <span className="text-sm text-slate-600">Dock shape — draw your pieces</span>
+            <div className="mt-1">
+              <DockPiecesCanvas pieces={pieces} onChange={setPieces} />
+            </div>
+          </div>
           <Row>
             <Sel label="Frame" value={config.overall.frameMaterial} options={FRAMES} onChange={(v) => setOverall({ frameMaterial: v as FrameMaterial })} />
             <Sel label="Decking" value={config.overall.deckingMaterial} options={DECKINGS} onChange={(v) => setOverall({ deckingMaterial: v as DeckingMaterial })} />
@@ -386,6 +400,25 @@ function EstimateTable({ estimate }: { estimate: ReturnType<typeof pricingEngine
       {estimate.minimumApplied && <p className="mt-1 text-xs text-slate-500">Minimum project price applied.</p>}
     </div>
   );
+}
+
+/** Bounding length×width (ft) across drawn pieces, honoring 90° rotations. */
+function piecesBounds(pieces: DockPiece[]): { lengthFt: number; widthFt: number } {
+  const rotate = (x: number, y: number, deg: Rotation): [number, number] =>
+    deg === 90 ? [-y, x] : deg === 180 ? [-x, -y] : deg === 270 ? [y, -x] : [x, y];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pieces) {
+    const corners = p.pieceKind === "right_triangle"
+      ? [[0, 0], [p.legAFt ?? 0, 0], [0, p.legBFt ?? 0]]
+      : [[0, 0], [p.lengthFt ?? 0, 0], [p.lengthFt ?? 0, p.widthFt ?? 0], [0, p.widthFt ?? 0]];
+    for (const [x, y] of corners) {
+      const [rx, ry] = rotate(x!, y!, p.rotationDeg);
+      minX = Math.min(minX, p.posX + rx); maxX = Math.max(maxX, p.posX + rx);
+      minY = Math.min(minY, p.posY + ry); maxY = Math.max(maxY, p.posY + ry);
+    }
+  }
+  if (!Number.isFinite(minX)) return { lengthFt: 1, widthFt: 1 };
+  return { lengthFt: Math.max(1, Math.round(maxX - minX)), widthFt: Math.max(1, Math.round(maxY - minY)) };
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {

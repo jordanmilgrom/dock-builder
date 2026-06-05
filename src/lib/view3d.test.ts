@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateStartingDesign, type DockConfig } from "@/engine";
-import { buildSceneSpec, isThreeAvailable } from "@/lib/view3d";
+import { buildSceneSpec, isThreeAvailable, triangleVertices } from "@/lib/view3d";
 
 const SITE = {
   depthAtEndLowWaterFt: 6,
@@ -98,6 +98,49 @@ describe("3D polish — floats under the deck + triangle prisms", () => {
 
     // Floats follow the engine layout: 8 on the rectangle + 3 on the triangle corners.
     expect(spec.boxes.filter((b) => b.kind === "float")).toHaveLength(8 + 3);
+  });
+
+  it("BUG A — no float box pokes out past its deck footprint (top-down)", () => {
+    const spec = buildSceneSpec(floatingBase());
+    const decks = spec.boxes.filter((b) => b.kind === "deck");
+    const within = (lo: number, hi: number, min: number, max: number) => lo >= min - 1e-9 && hi <= max + 1e-9;
+    for (const f of spec.boxes.filter((b) => b.kind === "float")) {
+      const fits = decks.some((d) =>
+        within(f.x - f.w / 2, f.x + f.w / 2, d.x - d.w / 2, d.x + d.w / 2) &&
+        within(f.z - f.d / 2, f.z + f.d / 2, d.z - d.d / 2, d.z + d.d / 2),
+      );
+      expect(fits, `float at (${f.x},${f.z}) ${f.w}×${f.d} pokes out`).toBe(true);
+    }
+  });
+
+  it("BUG A — canonical 24×6: all 8 floats fully inside the 24×6 footprint", () => {
+    const spec = buildSceneSpec(floatingBase());
+    const floats = spec.boxes.filter((b) => b.kind === "float");
+    expect(floats).toHaveLength(8);
+    for (const f of floats) {
+      expect(f.x - f.w / 2).toBeGreaterThanOrEqual(0 - 1e-9);
+      expect(f.x + f.w / 2).toBeLessThanOrEqual(24 + 1e-9);
+      expect(f.z - f.d / 2).toBeGreaterThanOrEqual(0 - 1e-9);
+      expect(f.z + f.d / 2).toBeLessThanOrEqual(6 + 1e-9);
+    }
+  });
+
+  it("BUG B — 3D triangle vertices match the 2D canvas (shared convention)", () => {
+    // The piece under test: a rotated right triangle.
+    const config: DockConfig = {
+      ...floatingBase(),
+      pieces: [
+        { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 24, widthFt: 6 },
+        { pieceKind: "right_triangle", posX: 10, posY: 5, rotationDeg: 90, legAFt: 4, legBFt: 4 },
+      ],
+    };
+    const spec = buildSceneSpec(config);
+    const tri = spec.boxes.find((b) => b.kind === "deck" && b.footprint === "triangle")!.tri!;
+    // The same helper the 2D canvas (DockPiecesCanvas.worldCorners) uses.
+    const canvas = triangleVertices(4, 4, 10, 5, 90);
+    expect(tri.vertices).toEqual(canvas);
+    // Sanity: the documented convention (rotate around v0 = (posX,posY)).
+    expect(canvas).toEqual([[10, 5], [10, 9], [6, 5]]);
   });
 });
 

@@ -11,7 +11,7 @@ describe("billableQuantities", () => {
 
   it("derives structural quantities from geometry", () => {
     expect(q.frame_per_ft2).toBe(240);
-    expect(q.flotation_per_float).toBe(8);
+    expect(q.flotation_per_float).toBe(16);
     expect(q.gangway_per_linear_ft).toBe(36);
     expect(q.connector_each).toBe(1); // 2 auto-sections → 1 connector
   });
@@ -31,7 +31,7 @@ describe("pricingEngine — full itemized estimate", () => {
   it("prices each configured line item", () => {
     const byKey = Object.fromEntries(result.lineItems.map((li) => [li.key, li]));
     expect(byKey.frame_per_ft2!.subtotal).toBe(240 * 18);
-    expect(byKey.flotation_per_float!.subtotal).toBe(8 * 120);
+    expect(byKey.flotation_per_float!.subtotal).toBe(16 * 120);
     expect(byKey.gangway_per_linear_ft!.subtotal).toBe(36 * 140);
     expect(byKey.accessory_edging_per_linear_ft!.subtotal).toBe(92 * 9);
   });
@@ -40,7 +40,7 @@ describe("pricingEngine — full itemized estimate", () => {
     expect(result.labor).toBe(240 * 22);
     expect(result.delivery).toBe(600); // 40 mi → second band (≤75)
     const expectedItems =
-      240 * 18 + 240 * 6 + 8 * 120 + 1 * 85 + 36 * 140 + 6 * 35 + 1 * 220 + 92 * 9;
+      240 * 18 + 240 * 6 + 16 * 120 + 1 * 85 + 36 * 140 + 6 * 35 + 1 * 220 + 92 * 9;
     expect(result.itemsSubtotal).toBe(expectedItems);
     const base = result.itemsSubtotal + result.labor + result.delivery;
     expect(result.markup).toBeCloseTo(base * 0.1, 2);

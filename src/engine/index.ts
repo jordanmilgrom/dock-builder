@@ -27,6 +27,20 @@ export {
   estWeightLbs,
 } from "./geometry.js";
 export type { PlacementFt } from "./geometry.js";
+export {
+  resolvePieces,
+  pieceAreaFt2,
+  pieceCornersLocal,
+  pieceWorldPolygon,
+  worldBounds,
+  floatLayoutForPiece,
+  pileLayoutForPiece,
+  allFloatPositions,
+  allPilePositions,
+  pieceCantilever,
+  bayFtFor,
+} from "./pieces.js";
+export type { NormalizedPiece } from "./pieces.js";
 export { recommendDockType } from "./recommendation.js";
 export type { Recommendation } from "./recommendation.js";
 export { validationEngine } from "./validation.js";

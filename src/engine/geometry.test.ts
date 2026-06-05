@@ -57,15 +57,17 @@ describe("canonical §7.5 → §7.6 derived metrics", () => {
     expect(requiredBuoyancyLbs(canonicalFloatingConfig)).toBe(7440);
   });
 
-  it("float count = 8 on an inland lake", () => {
-    expect(floatCount(canonicalFloatingConfig)).toBe(8);
+  it("float count = 16 with Phase 6 two-row corner layout (2 pieces × 2 rows × 4)", () => {
+    // 40×6 auto-sections into 2 pieces; each gets 2 rows × 4 columns = 8 floats.
+    expect(floatCount(canonicalFloatingConfig)).toBe(16);
   });
 
-  it("freeboard sits near 9–10 in at the 40% design submergence", () => {
+  it("freeboard rides high — the 2-row layout over-floats the design load", () => {
     const fb = freeboard(canonicalFloatingConfig);
-    expect(fb.submergenceFraction).toBeCloseTo(0.4, 2);
-    expect(fb.freeboardIn).toBeGreaterThanOrEqual(9);
-    expect(fb.freeboardIn).toBeLessThanOrEqual(10);
+    // 16 floats installed vs. ~8 required → submergence well under the 40% target.
+    expect(fb.submergenceFraction).toBeCloseTo(0.2, 2);
+    expect(fb.freeboardIn).toBeGreaterThanOrEqual(12);
+    expect(fb.freeboardIn).toBeLessThanOrEqual(13);
   });
 
   it("gangway length = rise × slope ratio = 36 ft", () => {
@@ -77,13 +79,15 @@ describe("canonical §7.5 → §7.6 derived metrics", () => {
   });
 });
 
-describe("float count responds to exposure", () => {
-  it("needs more floats in open water than sheltered water", () => {
+describe("float layout is geometric in Phase 6 (placement-driven, not exposure)", () => {
+  it("float count is the same regardless of exposure (two-row corner rule)", () => {
     const sheltered = clone(canonicalFloatingConfig);
     sheltered.site.waveExposure = "sheltered";
     const open = clone(canonicalFloatingConfig);
     open.site.waveExposure = "open_water";
-    expect(floatCount(open)).toBeGreaterThan(floatCount(sheltered));
+    // Phase 6: count is driven by piece geometry (rows × corner spacing), so
+    // exposure no longer changes it; submergence reserve covers rough water.
+    expect(floatCount(open)).toBe(floatCount(sheltered));
   });
 
   it("returns 0 floats for non-floating docks", () => {

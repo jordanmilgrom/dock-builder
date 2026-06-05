@@ -33,8 +33,8 @@ import {
   maxJoistSpanFt,
   pilingCount,
   requiredBuoyancyLbs,
-  resolveSections,
 } from "./geometry.js";
+import { bayFtFor, pieceCantilever, resolvePieces } from "./pieces.js";
 import type {
   DockConfig,
   ValidationIssue,
@@ -74,7 +74,19 @@ export function validationEngine(config: DockConfig): ValidationResult {
     );
   }
 
-  const { sections, autoSectioned } = resolveSections(config);
+  // Phase 6: all structural checks run over the resolved PIECES (back-compat
+  // shim turns legacy sections/overall into rectangle pieces).
+  const pieces = resolvePieces(config);
+  const bay = bayFtFor(config);
+  // Rectangle pieces carry length/width section semantics; triangles are fills.
+  const rectPieces = pieces
+    .map((p, idx) => ({ idx, lengthFt: p.lengthFt, widthFt: p.widthFt, isRect: p.kind === "rectangle" }))
+    .filter((p) => p.isRect);
+  const autoSectioned =
+    config.dockType === "floating" &&
+    !(config.pieces && config.pieces.length) &&
+    !(config.sections && config.sections.length) &&
+    pieces.length > 1;
   const span = maxJoistSpanFt(config);
   const spacing = joistSpacingIn(config);
 
@@ -91,33 +103,36 @@ export function validationEngine(config: DockConfig): ValidationResult {
     );
   }
 
-  // --- §3.2 / §3.3 Unsupported joist run vs. span -------------------------
-  // Joists are supported by floats (floating, ≤8 ft) or pile bents (fixed).
-  // The unsupported run is therefore the *support spacing*, not the section
-  // length. For a fixed dock longer than the joist span the engine adds
-  // intermediate beams + bents (an auto-fix). A *user-declared* bay that
-  // exceeds the span is an error, because the customer pinned a run that
-  // cannot be supported without redesign.
-  const userDeclaredSections = !!(config.sections && config.sections.length > 0);
+  // --- §3.2 Unsupported joist run vs. span (Phase 6 pile model) ------------
+  // Fixed docks carry piles on the bay grid, so the unsupported joist run is
+  // the BAY, not the piece length. A bay larger than the span is an error; the
+  // bay-bent support is always described as an auto-fix; and any rectangle whose
+  // run doesn't land on the grid would cantilever past the last pile (error).
   const isFixed =
     config.dockType === "pile" ||
     config.dockType === "pipe" ||
     config.dockType === "crib";
   if (isFixed) {
-    for (let i = 0; i < sections.length; i++) {
-      const s = sections[i]!;
-      if (s.lengthFt > span) {
-        if (userDeclaredSections) {
-          err(
-            "joist_span_exceeded",
-            `Joist run ${s.lengthFt} ft exceeds max span for ${config.overall.joistSize ?? "2x8"} @ ${spacing}in OC (${span} ft) — add beams or split the bay.`,
-            `sections[${i}].lengthFt`,
-          );
-        } else {
-          autoFixes.push(
-            `Add intermediate beam + pile bents every ${span} ft to support the ${s.lengthFt} ft run (${pilingCount(config)} piles total).`,
-          );
-        }
+    if (bay > span) {
+      err(
+        "joist_span_exceeded",
+        `Pile bay ${bay} ft exceeds the joist span (${span} ft) for ${config.overall.joistSize ?? "2x8"} @ ${spacing}in OC — reduce the bay or upsize the joists.`,
+        "overall.bayFt",
+      );
+    }
+    autoFixes.push(
+      `Support on pile bents every ${bay} ft (${pilingCount(config)} piles total).`,
+    );
+    for (let i = 0; i < pieces.length; i++) {
+      const p = pieces[i]!;
+      if (p.kind !== "rectangle") continue;
+      const c = pieceCantilever(p, bay);
+      if (!c.ok) {
+        err(
+          "pile_cantilever",
+          `Piece ${i + 1} ${c.dim} ${c.value} ft doesn't align to the ${bay} ft pile bay grid — residential pile docks can't cantilever past the piles. Use ${c.nearest} ft.`,
+          `pieces[${i}].lengthFt`,
+        );
       }
     }
   }
@@ -130,36 +145,34 @@ export function validationEngine(config: DockConfig): ValidationResult {
         : MAX_SECTION.floating.lengthWoodFt;
     if (autoSectioned) {
       autoFixes.push(
-        `Split ${config.overall.lengthFt} ft length into ${sections.length} sections (max ${maxLen} ft each) with hinged connectors.`,
+        `Split ${config.overall.lengthFt} ft length into ${pieces.length} sections (max ${maxLen} ft each) with hinged connectors.`,
       );
     }
-    for (let i = 0; i < sections.length; i++) {
-      const s = sections[i]!;
-      if (s.lengthFt > maxLen) {
+    for (const p of rectPieces) {
+      if (p.lengthFt > maxLen) {
         err(
           "section_length_exceeded",
-          `Section ${i + 1} length ${s.lengthFt} ft exceeds the ${maxLen} ft max for a ${config.overall.frameMaterial} floating section.`,
-          `sections[${i}].lengthFt`,
+          `Section ${p.idx + 1} length ${p.lengthFt} ft exceeds the ${maxLen} ft max for a ${config.overall.frameMaterial} floating section.`,
+          `pieces[${p.idx}].lengthFt`,
         );
       }
-      if (s.widthFt > MAX_SECTION.floating.widthFt) {
+      if (p.widthFt > MAX_SECTION.floating.widthFt) {
         warn(
           "section_width_large",
-          `Section ${i + 1} width ${s.widthFt} ft exceeds the typical ${MAX_SECTION.floating.widthFt} ft floating-section width.`,
-          `sections[${i}].widthFt`,
+          `Section ${p.idx + 1} width ${p.widthFt} ft exceeds the typical ${MAX_SECTION.floating.widthFt} ft floating-section width.`,
+          `pieces[${p.idx}].widthFt`,
         );
       }
     }
   }
 
   // --- §3.3 Minimum width --------------------------------------------------
-  for (let i = 0; i < sections.length; i++) {
-    const s = sections[i]!;
-    if (s.widthFt < MIN_WIDTH_FT.twoWayTraffic) {
+  for (const p of rectPieces) {
+    if (p.widthFt < MIN_WIDTH_FT.twoWayTraffic) {
       warn(
         "width_below_two_way",
-        `Section ${i + 1} width ${s.widthFt} ft is below the ${MIN_WIDTH_FT.twoWayTraffic} ft two-way-traffic minimum.`,
-        `sections[${i}].widthFt`,
+        `Section ${p.idx + 1} width ${p.widthFt} ft is below the ${MIN_WIDTH_FT.twoWayTraffic} ft two-way-traffic minimum.`,
+        `pieces[${p.idx}].widthFt`,
       );
     }
   }
@@ -180,13 +193,15 @@ export function validationEngine(config: DockConfig): ValidationResult {
         );
       }
     }
-    // §3.1 placement: two rows when wider than ~6 ft.
-    for (let i = 0; i < sections.length; i++) {
-      const s = sections[i]!;
-      const placed = s.floats?.length ?? 0;
-      if (placed > 0) {
-        validateFloatPlacement(s, i, warn);
-      }
+    // §3.1 / Phase 6 placement check on any MANUALLY-placed floats.
+    const placedGroups = config.pieces?.length
+      ? config.pieces
+          .filter((p) => p.pieceKind === "rectangle")
+          .map((p) => ({ lengthFt: p.lengthFt ?? 0, widthFt: p.widthFt ?? 0, floats: p.floats }))
+      : config.sections ?? [];
+    for (let i = 0; i < placedGroups.length; i++) {
+      const s = placedGroups[i]!;
+      if ((s.floats?.length ?? 0) > 0) validateFloatPlacement(s, i, warn);
     }
     // §3.6 forbid bare EPS.
     if (config.floatCatalog) {
@@ -349,7 +364,7 @@ export function validationEngine(config: DockConfig): ValidationResult {
   // --- Derived metrics bundle ---------------------------------------------
   const derived = {
     deckAreaFt2: deckAreaFt2(config),
-    sectionCount: sections.length,
+    sectionCount: pieces.length,
     requiredBuoyancyLbs: requiredBuoyancyLbs(config),
     floatCount: floatCount(config),
     estFreeboardIn: fb.freeboardIn,
@@ -361,7 +376,7 @@ export function validationEngine(config: DockConfig): ValidationResult {
   };
 
   // Note connector line items when sections exist (informational autoFix).
-  const connectors = connectorCount(sections.length);
+  const connectors = connectorCount(pieces.length);
   if (connectors > 0 && config.dockType === "floating") {
     autoFixes.push(
       `Add ${connectors} hinged/bolted connector${connectors > 1 ? "s" : ""} between sections (line items).`,

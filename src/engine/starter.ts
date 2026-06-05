@@ -58,6 +58,9 @@ export function generateStartingDesign(
       frameMaterial,
       joistSize: "2x8",
     },
+    // Phase 6: seed a single rectangle piece so the drawing canvas has a shape
+    // to edit. `overall` is kept in sync for back-compat + dimension labels.
+    pieces: [{ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt, widthFt }],
     gangway:
       site.shoreHeightAboveWaterFt > 0
         ? {

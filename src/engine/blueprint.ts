@@ -16,12 +16,18 @@ import {
   freeboard,
   gangwayLengthFt,
   gangwaySlopePct,
-  resolveSections,
   suggestedFloatLayout,
   suggestedPileLayout,
 } from "./geometry.js";
+import { pieceWorldPolygon, resolvePieces, worldBounds } from "./pieces.js";
 import { DEFAULT_FLOAT } from "./constants.js";
 import type { DockConfig } from "./types.js";
+
+/** World bounding dimensions (ft) across all resolved pieces. */
+function boundsDims(config: DockConfig): { lengthFt: number; widthFt: number; minX: number; minY: number } {
+  const b = worldBounds(resolvePieces(config));
+  return { lengthFt: Math.max(b.maxX - b.minX, 1), widthFt: Math.max(b.maxY - b.minY, 1), minX: b.minX, minY: b.minY };
+}
 
 // ---------------------------------------------------------------------------
 // Primitive model
@@ -185,7 +191,8 @@ function resolveFloatHeightIn(config: DockConfig): number {
 
 export function planView(config: DockConfig): Drawing {
   const shapes: Shape[] = [];
-  const { lengthFt, widthFt } = config.overall;
+  const pieces = resolvePieces(config);
+  const { lengthFt, widthFt, minX, minY } = boundsDims(config);
   const gangL = gangwayLengthFt(config);
   const shoreBand = Math.max(2, lengthFt * 0.08);
 
@@ -193,15 +200,14 @@ export function planView(config: DockConfig): Drawing {
   const modelH = Math.max(widthFt, 6);
   const f = new Frame(modelW, modelH);
 
+  // World→canvas mapping shared by pieces, floats and piles (single frame).
+  const yOffset = (modelH - widthFt) / 2 - minY;
+  const baseX = shoreBand + gangL - minX;
+  const wx = (xFt: number): number => f.x(baseX + xFt);
+  const wy = (yFt: number): number => f.y(yOffset + yFt);
+
   // Water background.
-  shapes.push({
-    kind: "rect",
-    x: 0,
-    y: 0,
-    w: CANVAS.w,
-    h: CANVAS.h,
-    style: { fill: COLOR.water, stroke: "none" },
-  });
+  shapes.push({ kind: "rect", x: 0, y: 0, w: CANVAS.w, h: CANVAS.h, style: { fill: COLOR.water, stroke: "none" } });
 
   const yTop = f.y((modelH - widthFt) / 2);
   const yBot = f.y((modelH - widthFt) / 2 + widthFt);
@@ -209,14 +215,7 @@ export function planView(config: DockConfig): Drawing {
   const dockX1 = f.x(shoreBand + gangL + lengthFt);
 
   // Shore band on the left.
-  shapes.push({
-    kind: "rect",
-    x: 0,
-    y: 0,
-    w: f.x(shoreBand),
-    h: CANVAS.h,
-    style: { fill: COLOR.bottom, stroke: "none", opacity: 0.5 },
-  });
+  shapes.push({ kind: "rect", x: 0, y: 0, w: f.x(shoreBand), h: CANVAS.h, style: { fill: COLOR.bottom, stroke: "none", opacity: 0.5 } });
   shapes.push(text({ x: 8, y: 20 }, "SHORE", { fontWeight: "bold", fill: COLOR.ink }));
 
   // Gangway (plan projection).
@@ -224,95 +223,31 @@ export function planView(config: DockConfig): Drawing {
     const gWidthFt = (config.gangway?.widthIn ?? 48) / 12;
     const gyTop = f.y((modelH - gWidthFt) / 2);
     const gyBot = f.y((modelH - gWidthFt) / 2 + gWidthFt);
-    shapes.push({
-      kind: "rect",
-      x: f.x(shoreBand),
-      y: gyTop,
-      w: f.len(gangL),
-      h: gyBot - gyTop,
-      style: { fill: COLOR.gangway, stroke: COLOR.ink },
-    });
-    shapes.push(
-      text({ x: (f.x(shoreBand) + dockX0) / 2, y: gyTop - 6 }, "gangway", {
-        fill: COLOR.accent,
-        align: "middle",
-      }),
-    );
+    shapes.push({ kind: "rect", x: f.x(shoreBand), y: gyTop, w: f.len(gangL), h: gyBot - gyTop, style: { fill: COLOR.gangway, stroke: COLOR.ink } });
+    shapes.push(text({ x: (f.x(shoreBand) + dockX0) / 2, y: gyTop - 6 }, "gangway", { fill: COLOR.accent, align: "middle" }));
   }
 
-  // Sections (resolved by the engine) with break lines.
-  const { sections } = resolveSections(config);
-  let cursorFt = 0;
-  for (let i = 0; i < sections.length; i++) {
-    const s = sections[i]!;
-    const x0 = f.x(shoreBand + gangL + cursorFt);
-    const w = f.len(s.lengthFt);
-    shapes.push({
-      kind: "rect",
-      x: x0,
-      y: yTop,
-      w,
-      h: yBot - yTop,
-      style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 },
-    });
-    if (i > 0) {
-      // Section break (hinged connector) — dashed line.
-      shapes.push({
-        kind: "line",
-        a: { x: x0, y: yTop },
-        b: { x: x0, y: yBot },
-        style: { stroke: COLOR.accent, dashed: true, strokeWidth: 1.5 },
-      });
-    }
-    cursorFt += s.lengthFt;
+  // Each drawn piece, at its world placement (Phase 6 — one polygon per piece).
+  for (let i = 0; i < pieces.length; i++) {
+    const poly = pieceWorldPolygon(pieces[i]!).map((pt) => ({ x: wx(pt.xFt), y: wy(pt.yFt) }));
+    shapes.push({ kind: "polygon", points: poly, closed: true, style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
   }
 
-  // Floats or pilings (positions from the engine).
+  // Floats or pilings (engine-supplied world positions).
   for (const p of suggestedFloatLayout(config)) {
     const fw = f.len(DEFAULT_FLOAT.lengthIn / 12);
     const fh = f.len(DEFAULT_FLOAT.widthIn / 12);
-    shapes.push({
-      kind: "rect",
-      x: f.x(shoreBand + gangL + p.xFt) - fw / 2,
-      y: f.y((modelH - widthFt) / 2 + p.yFt) - fh / 2,
-      w: fw,
-      h: fh,
-      style: { fill: COLOR.float, stroke: COLOR.floatStroke, opacity: 0.85 },
-    });
+    shapes.push({ kind: "rect", x: wx(p.xFt) - fw / 2, y: wy(p.yFt) - fh / 2, w: fw, h: fh, style: { fill: COLOR.float, stroke: COLOR.floatStroke, opacity: 0.85 } });
   }
   for (const p of suggestedPileLayout(config)) {
-    shapes.push({
-      kind: "circle",
-      c: {
-        x: f.x(shoreBand + gangL + p.xFt),
-        y: f.y((modelH - widthFt) / 2 + p.yFt),
-      },
-      r: 4,
-      style: { fill: COLOR.pile, stroke: COLOR.pileStroke },
-    });
+    shapes.push({ kind: "circle", c: { x: wx(p.xFt), y: wy(p.yFt) }, r: 4, style: { fill: COLOR.pile, stroke: COLOR.pileStroke } });
   }
 
-  // Cleats along the two long edges, ladder at the lakeward end.
-  const cleats = config.accessories?.find((a) => a.type === "cleat")?.qty ?? 0;
-  for (let i = 0; i < cleats; i++) {
-    const along = ((i + 0.5) / Math.ceil(cleats / 2)) * lengthFt;
-    if (along > lengthFt) break;
-    const cx = f.x(shoreBand + gangL + along);
-    const onTop = i % 2 === 0;
-    shapes.push({
-      kind: "circle",
-      c: { x: cx, y: onTop ? yTop : yBot },
-      r: 3,
-      style: { fill: COLOR.accent, stroke: COLOR.ink },
-    });
-  }
   if (config.accessories?.some((a) => a.type === "ladder")) {
-    shapes.push(
-      text({ x: dockX1 - 4, y: yBot + 14 }, "ladder", { fill: COLOR.accent, align: "end" }),
-    );
+    shapes.push(text({ x: dockX1 - 4, y: yBot + 14 }, "ladder", { fill: COLOR.accent, align: "end" }));
   }
 
-  // Dimensions + north arrow.
+  // Overall dimensions + north arrow.
   shapes.push(...hDim(dockX0, dockX1, yBot + 28, ft(lengthFt)));
   shapes.push(...vDim(dockX1 + 22, yTop, yBot, ft(widthFt)));
   shapes.push(...northArrow(CANVAS.w - 40, 40));
@@ -343,7 +278,7 @@ function northArrow(cx: number, cy: number): Shape[] {
 
 export function sideElevation(config: DockConfig): Drawing {
   const shapes: Shape[] = [];
-  const { lengthFt } = config.overall;
+  const { lengthFt } = boundsDims(config);
   const gangL = gangwayLengthFt(config);
   const rise = config.site.shoreHeightAboveWaterFt;
   const depth = config.site.depthAtEndLowWaterFt;
@@ -431,7 +366,7 @@ function distinctX(positions: { xFt: number }[]): number[] {
 
 export function endElevation(config: DockConfig): Drawing {
   const shapes: Shape[] = [];
-  const widthFt = config.overall.widthFt;
+  const { widthFt } = boundsDims(config);
   const depth = config.site.depthAtEndLowWaterFt;
   const rise = config.site.shoreHeightAboveWaterFt;
 
@@ -483,7 +418,7 @@ export function endElevation(config: DockConfig): Drawing {
 
 export function isometricView(config: DockConfig): Drawing {
   const shapes: Shape[] = [];
-  const { lengthFt, widthFt } = config.overall;
+  const { lengthFt, widthFt } = boundsDims(config);
   const thickFt = 1.2;
   const a = Math.PI / 6; // 30°
   const cos = Math.cos(a);

@@ -60,7 +60,7 @@ exports[`blueprint — render snapshots per view > end 1`] = `
       },
     },
     {
-      "h": 98.10000000000001,
+      "h": 98.1,
       "kind": "rect",
       "style": {
         "fill": "#cbd5e1",
@@ -68,7 +68,7 @@ exports[`blueprint — render snapshots per view > end 1`] = `
       },
       "w": 66.9,
       "x": 366.55,
-      "y": -76.4,
+      "y": -96,
     },
     {
       "h": 22.099999999999994,
@@ -80,12 +80,12 @@ exports[`blueprint — render snapshots per view > end 1`] = `
       },
       "w": 200.79999999999995,
       "x": 299.6,
-      "y": -98.5,
+      "y": -118.1,
     },
     {
       "a": {
         "x": 516.4,
-        "y": -76.4,
+        "y": -96,
       },
       "b": {
         "x": 516.4,
@@ -99,11 +99,11 @@ exports[`blueprint — render snapshots per view > end 1`] = `
     {
       "a": {
         "x": 512.4,
-        "y": -76.4,
+        "y": -96,
       },
       "b": {
         "x": 520.4,
-        "y": -76.4,
+        "y": -96,
       },
       "kind": "line",
       "style": {
@@ -127,7 +127,7 @@ exports[`blueprint — render snapshots per view > end 1`] = `
     {
       "at": {
         "x": 522.4,
-        "y": -46.97000000000001,
+        "y": -56.77000000000001,
       },
       "kind": "text",
       "style": {
@@ -135,7 +135,7 @@ exports[`blueprint — render snapshots per view > end 1`] = `
         "fill": "#6b7280",
         "fontSize": 11,
       },
-      "text": "freeboard 9.6 in",
+      "text": "freeboard 12.8 in",
     },
     {
       "a": {
@@ -241,16 +241,31 @@ exports[`blueprint — render snapshots per view > fixed plan 1`] = `
       "text": "SHORE",
     },
     {
-      "h": 191.20000000000002,
-      "kind": "rect",
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 132.4,
+          "y": 144.4,
+        },
+        {
+          "x": 744,
+          "y": 144.4,
+        },
+        {
+          "x": 744,
+          "y": 335.6,
+        },
+        {
+          "x": 132.4,
+          "y": 335.6,
+        },
+      ],
       "style": {
         "fill": "#f5e6c8",
         "stroke": "#1f2937",
         "strokeWidth": 1.5,
       },
-      "w": 611.6,
-      "x": 132.4,
-      "y": 144.4,
     },
     {
       "c": {
@@ -322,30 +337,6 @@ exports[`blueprint — render snapshots per view > fixed plan 1`] = `
       "style": {
         "fill": "#94a3b8",
         "stroke": "#334155",
-      },
-    },
-    {
-      "c": {
-        "x": 285.3,
-        "y": 144.4,
-      },
-      "kind": "circle",
-      "r": 3,
-      "style": {
-        "fill": "#b45309",
-        "stroke": "#1f2937",
-      },
-    },
-    {
-      "c": {
-        "x": 591.1,
-        "y": 335.6,
-      },
-      "kind": "circle",
-      "r": 3,
-      "style": {
-        "fill": "#b45309",
-        "stroke": "#1f2937",
       },
     },
     {
@@ -699,44 +690,58 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
       "text": "gangway",
     },
     {
-      "h": 52.20000000000002,
-      "kind": "rect",
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 396.5,
+          "y": 213.9,
+        },
+        {
+          "x": 570.3,
+          "y": 213.9,
+        },
+        {
+          "x": 570.3,
+          "y": 266.1,
+        },
+        {
+          "x": 396.5,
+          "y": 266.1,
+        },
+      ],
       "style": {
         "fill": "#f5e6c8",
         "stroke": "#1f2937",
         "strokeWidth": 1.5,
       },
-      "w": 173.7,
-      "x": 396.5,
-      "y": 213.9,
     },
     {
-      "h": 52.20000000000002,
-      "kind": "rect",
+      "closed": true,
+      "kind": "polygon",
+      "points": [
+        {
+          "x": 570.3,
+          "y": 213.9,
+        },
+        {
+          "x": 744,
+          "y": 213.9,
+        },
+        {
+          "x": 744,
+          "y": 266.1,
+        },
+        {
+          "x": 570.3,
+          "y": 266.1,
+        },
+      ],
       "style": {
         "fill": "#f5e6c8",
         "stroke": "#1f2937",
         "strokeWidth": 1.5,
       },
-      "w": 173.7,
-      "x": 570.3,
-      "y": 213.9,
-    },
-    {
-      "a": {
-        "x": 570.3,
-        "y": 213.9,
-      },
-      "b": {
-        "x": 570.3,
-        "y": 266.1,
-      },
-      "kind": "line",
-      "style": {
-        "dashed": true,
-        "stroke": "#b45309",
-        "strokeWidth": 1.5,
-      },
     },
     {
       "h": 17.4,
@@ -747,8 +752,8 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
         "stroke": "#475569",
       },
       "w": 34.7,
-      "x": 400.84999999999997,
-      "y": 231.3,
+      "x": 379.15,
+      "y": 205.20000000000002,
     },
     {
       "h": 17.4,
@@ -759,8 +764,8 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
         "stroke": "#475569",
       },
       "w": 34.7,
-      "x": 444.34999999999997,
-      "y": 231.3,
+      "x": 437.15,
+      "y": 205.20000000000002,
     },
     {
       "h": 17.4,
@@ -771,8 +776,8 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
         "stroke": "#475569",
       },
       "w": 34.7,
-      "x": 487.75,
-      "y": 231.3,
+      "x": 494.94999999999993,
+      "y": 205.20000000000002,
     },
     {
       "h": 17.4,
@@ -783,8 +788,8 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
         "stroke": "#475569",
       },
       "w": 34.7,
-      "x": 531.15,
-      "y": 231.3,
+      "x": 552.9499999999999,
+      "y": 205.20000000000002,
     },
     {
       "h": 17.4,
@@ -795,8 +800,8 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
         "stroke": "#475569",
       },
       "w": 34.7,
-      "x": 574.65,
-      "y": 231.3,
+      "x": 379.15,
+      "y": 257.40000000000003,
     },
     {
       "h": 17.4,
@@ -807,8 +812,8 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
         "stroke": "#475569",
       },
       "w": 34.7,
-      "x": 618.05,
-      "y": 231.3,
+      "x": 437.15,
+      "y": 257.40000000000003,
     },
     {
       "h": 17.4,
@@ -819,8 +824,8 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
         "stroke": "#475569",
       },
       "w": 34.7,
-      "x": 661.4499999999999,
-      "y": 231.3,
+      "x": 494.94999999999993,
+      "y": 257.40000000000003,
     },
     {
       "h": 17.4,
@@ -831,44 +836,104 @@ exports[`blueprint — render snapshots per view > plan 1`] = `
         "stroke": "#475569",
       },
       "w": 34.7,
-      "x": 704.9499999999999,
-      "y": 231.3,
+      "x": 552.9499999999999,
+      "y": 257.40000000000003,
     },
     {
-      "c": {
-        "x": 454.4,
-        "y": 213.9,
-      },
-      "kind": "circle",
-      "r": 3,
+      "h": 17.4,
+      "kind": "rect",
       "style": {
-        "fill": "#b45309",
-        "stroke": "#1f2937",
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
       },
+      "w": 34.7,
+      "x": 552.9499999999999,
+      "y": 205.20000000000002,
     },
     {
-      "c": {
-        "x": 570.3,
-        "y": 266.1,
-      },
-      "kind": "circle",
-      "r": 3,
+      "h": 17.4,
+      "kind": "rect",
       "style": {
-        "fill": "#b45309",
-        "stroke": "#1f2937",
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
       },
+      "w": 34.7,
+      "x": 610.85,
+      "y": 205.20000000000002,
     },
     {
-      "c": {
-        "x": 686.1,
-        "y": 213.9,
-      },
-      "kind": "circle",
-      "r": 3,
+      "h": 17.4,
+      "kind": "rect",
       "style": {
-        "fill": "#b45309",
-        "stroke": "#1f2937",
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
       },
+      "w": 34.7,
+      "x": 668.75,
+      "y": 205.20000000000002,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 726.65,
+      "y": 205.20000000000002,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 552.9499999999999,
+      "y": 257.40000000000003,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 610.85,
+      "y": 257.40000000000003,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 668.75,
+      "y": 257.40000000000003,
+    },
+    {
+      "h": 17.4,
+      "kind": "rect",
+      "style": {
+        "fill": "#cbd5e1",
+        "opacity": 0.85,
+        "stroke": "#475569",
+      },
+      "w": 34.7,
+      "x": 726.65,
+      "y": 257.40000000000003,
     },
     {
       "at": {
@@ -1124,95 +1189,84 @@ exports[`blueprint — render snapshots per view > side 1`] = `
       "text": "bottom (−6 ft)",
     },
     {
-      "h": 25.30000000000001,
+      "h": 25.19999999999999,
       "kind": "rect",
       "style": {
         "fill": "#cbd5e1",
         "stroke": "#475569",
       },
       "w": 34.4,
-      "x": 387.1,
-      "y": 295.3,
+      "x": 365.6,
+      "y": 290.3,
     },
     {
-      "h": 25.30000000000001,
+      "h": 25.19999999999999,
       "kind": "rect",
       "style": {
         "fill": "#cbd5e1",
         "stroke": "#475569",
       },
       "w": 34.4,
-      "x": 430.1,
-      "y": 295.3,
+      "x": 423,
+      "y": 290.3,
     },
     {
-      "h": 25.30000000000001,
+      "h": 25.19999999999999,
       "kind": "rect",
       "style": {
         "fill": "#cbd5e1",
         "stroke": "#475569",
       },
       "w": 34.4,
-      "x": 473.1,
-      "y": 295.3,
+      "x": 480.2,
+      "y": 290.3,
     },
     {
-      "h": 25.30000000000001,
+      "h": 25.19999999999999,
       "kind": "rect",
       "style": {
         "fill": "#cbd5e1",
         "stroke": "#475569",
       },
       "w": 34.4,
-      "x": 516.0999999999999,
-      "y": 295.3,
+      "x": 537.5999999999999,
+      "y": 290.3,
     },
     {
-      "h": 25.30000000000001,
+      "h": 25.19999999999999,
       "kind": "rect",
       "style": {
         "fill": "#cbd5e1",
         "stroke": "#475569",
       },
       "w": 34.4,
-      "x": 559.0999999999999,
-      "y": 295.3,
+      "x": 595,
+      "y": 290.3,
     },
     {
-      "h": 25.30000000000001,
+      "h": 25.19999999999999,
       "kind": "rect",
       "style": {
         "fill": "#cbd5e1",
         "stroke": "#475569",
       },
       "w": 34.4,
-      "x": 602.0999999999999,
-      "y": 295.3,
+      "x": 652.1999999999999,
+      "y": 290.3,
     },
     {
-      "h": 25.30000000000001,
+      "h": 25.19999999999999,
       "kind": "rect",
       "style": {
         "fill": "#cbd5e1",
         "stroke": "#475569",
       },
       "w": 34.4,
-      "x": 645.0999999999999,
-      "y": 295.3,
+      "x": 709.5999999999999,
+      "y": 290.3,
     },
     {
-      "h": 25.30000000000001,
-      "kind": "rect",
-      "style": {
-        "fill": "#cbd5e1",
-        "stroke": "#475569",
-      },
-      "w": 34.4,
-      "x": 688.0999999999999,
-      "y": 295.3,
-    },
-    {
-      "h": 5.600000000000023,
+      "h": 5.699999999999989,
       "kind": "rect",
       "style": {
         "fill": "#f5e6c8",
@@ -1221,12 +1275,12 @@ exports[`blueprint — render snapshots per view > side 1`] = `
       },
       "w": 343.99999999999994,
       "x": 382.8,
-      "y": 289.7,
+      "y": 284.6,
     },
     {
       "a": {
         "x": 742.8,
-        "y": 295.3,
+        "y": 290.3,
       },
       "b": {
         "x": 742.8,
@@ -1240,11 +1294,11 @@ exports[`blueprint — render snapshots per view > side 1`] = `
     {
       "a": {
         "x": 738.8,
-        "y": 295.3,
+        "y": 290.3,
       },
       "b": {
         "x": 746.8,
-        "y": 295.3,
+        "y": 290.3,
       },
       "kind": "line",
       "style": {
@@ -1268,7 +1322,7 @@ exports[`blueprint — render snapshots per view > side 1`] = `
     {
       "at": {
         "x": 748.8,
-        "y": 302.89,
+        "y": 300.39,
       },
       "kind": "text",
       "style": {
@@ -1276,7 +1330,7 @@ exports[`blueprint — render snapshots per view > side 1`] = `
         "fill": "#6b7280",
         "fontSize": 11,
       },
-      "text": "freeboard 9.6 in",
+      "text": "freeboard 12.8 in",
     },
     {
       "a": {
@@ -1285,7 +1339,7 @@ exports[`blueprint — render snapshots per view > side 1`] = `
       },
       "b": {
         "x": 382.8,
-        "y": 289.7,
+        "y": 284.6,
       },
       "kind": "line",
       "style": {
@@ -1296,7 +1350,7 @@ exports[`blueprint — render snapshots per view > side 1`] = `
     {
       "at": {
         "x": 219.4,
-        "y": 265.7,
+        "y": 263.15,
       },
       "kind": "text",
       "style": {

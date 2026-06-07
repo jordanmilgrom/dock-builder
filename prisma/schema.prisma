@@ -69,6 +69,11 @@ model Tenant {
   slackWebhookUrl    String?
   twilioFromOverride String?
 
+  // Phase 7: when true, the customer flow skips the opt-in questionnaire wizard
+  // and lands straight on the empty Canvas editor. Premium-only (gated in the
+  // branding editor); additive, defaults false so existing tenants are unchanged.
+  skipWizardByDefault Boolean @default(false)
+
   branding        Branding?
   users           User[]
   customers       Customer[]

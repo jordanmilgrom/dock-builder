@@ -177,12 +177,14 @@ export default async function BuilderDashboard() {
 
       <BrandingEditor
         canRemoveBadge={ent.removeBadge}
+        canSkipWizard={tenant.tier === "premium"}
         initial={{
           name: tenant.branding?.name ?? tenant.name,
           logoText: tenant.branding?.logoText ?? tenant.name.toUpperCase(),
           primaryColor: tenant.branding?.primaryColor ?? "#0e7490",
           secondaryColor: tenant.branding?.secondaryColor ?? "#0f172a",
           removeBadge: tenant.branding?.removeBadge ?? false,
+          skipWizardByDefault: tenant.skipWizardByDefault,
           slug: tenant.slug,
         }}
       />

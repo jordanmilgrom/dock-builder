@@ -14,6 +14,7 @@ interface Body {
   primaryColor?: string;
   secondaryColor?: string;
   removeBadge?: boolean;
+  skipWizardByDefault?: boolean;
   slug?: string;
 }
 
@@ -49,6 +50,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
   if (typeof body.name === "string" && body.name.trim()) {
     await prisma.tenant.update({ where: { id: builder.tenantId }, data: { name: body.name.trim() } });
+  }
+  // Phase 7: skip-wizard default is Premium-only; silently ignored otherwise.
+  if (typeof body.skipWizardByDefault === "boolean" && tenant.tier === "premium") {
+    await prisma.tenant.update({ where: { id: builder.tenantId }, data: { skipWizardByDefault: body.skipWizardByDefault } });
   }
 
   return NextResponse.json({ ok: !slugError, ...(slugError ? { slugError } : {}) });

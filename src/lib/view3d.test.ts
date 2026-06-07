@@ -138,7 +138,7 @@ describe("3D polish — floats under the deck + triangle prisms", () => {
     };
     const spec = buildSceneSpec(config);
     const tri = spec.boxes.find((b) => b.kind === "deck" && b.footprint === "triangle")!.tri!;
-    // The same helper the 2D canvas (DockPiecesCanvas.worldCorners) uses.
+    // The same helper the 2D canvas (CanvasMode.worldCorners) uses.
     const canvas = triangleVertices(4, 4, 10, 5, 90);
     expect(tri.vertices).toEqual(canvas);
     // Sanity: the documented convention (rotate around v0 = (posX,posY)).

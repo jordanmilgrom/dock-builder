@@ -169,5 +169,9 @@ Later phases (not built yet) per §8:
   builder dashboard/CRM, revise-and-resend loop.
 - **Phase 4** — Embed widget, custom domains, tiers, analytics, templates.
 - **Phase 5** — Optional job-tracking, webhooks, full 3D.
+- **Phase 6** — Real-world geometry: multi-piece docks, per-piece float/pile layout.
+- **Phase 7** — Canvas-first IA: a full-pane Canvas editor with a Canvas/Schematic/3D
+  view switcher and a right-rail Properties panel; the questionnaire becomes an
+  opt-in wizard. UI/IA only — engines unchanged. See [PHASE7.md](PHASE7.md).
 
 The engines here are the stable foundation those phases consume.

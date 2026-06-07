@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import Configurator from "@/components/Configurator";
+import ConfiguratorPane from "@/components/ConfiguratorPane";
 import { getCustomerSession } from "@/lib/session";
 import { getTenantContext, loadProfiles } from "@/lib/tenant";
 
@@ -20,7 +21,7 @@ export default async function DesignPage({ params }: { params: { id: string } })
   const profiles = await loadProfiles(ctx.scope);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">{design.name}</h1>
@@ -33,17 +34,19 @@ export default async function DesignPage({ params }: { params: { id: string } })
         </div>
         <Link href="/designs" className="text-sm text-brand hover:underline">My designs →</Link>
       </div>
-      <Configurator
-        designId={design.id}
-        initialConfig={revision.config}
-        initialVersion={revision.version}
-        emailCaptured={Boolean(customer?.email)}
-        profiles={profiles}
-        brandName={ctx.meta.branding.name}
-        alreadySubmitted={design.status === "submitted"}
-        threeDEnabled={ctx.meta.entitlements.fullThreeD}
-        primaryColor={ctx.meta.branding.primaryColor}
-      />
+      <Suspense fallback={<div className="h-[32rem] rounded-lg border border-slate-200 bg-white" />}>
+        <ConfiguratorPane
+          designId={design.id}
+          initialConfig={revision.config}
+          initialVersion={revision.version}
+          emailCaptured={Boolean(customer?.email)}
+          profiles={profiles}
+          brandName={ctx.meta.branding.name}
+          alreadySubmitted={design.status === "submitted"}
+          threeDEnabled={ctx.meta.entitlements.fullThreeD}
+          primaryColor={ctx.meta.branding.primaryColor}
+        />
+      </Suspense>
     </div>
   );
 }

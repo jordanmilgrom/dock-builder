@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import Configurator from "@/components/Configurator";
+import ConfiguratorPane from "@/components/ConfiguratorPane";
 import CustomerNotes from "@/components/CustomerNotes";
 import JobPanel from "@/components/JobPanel";
 import LeadOutcomeButtons from "@/components/LeadOutcomeButtons";
@@ -79,19 +80,21 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       <div>
         <h3 className="mb-2 text-sm font-semibold text-slate-800">Revise &amp; re-quote (§5.5)</h3>
         {revision && (
-          <Configurator
-            designId={design.id}
-            initialConfig={revision.config}
-            initialVersion={revision.version}
-            emailCaptured
-            profiles={profiles}
-            brandName={ctx.meta.branding.name}
-            mode="builder"
-            leadId={lead.id}
-            threeDEnabled={ctx.meta.entitlements.fullThreeD}
-            primaryColor={ctx.meta.branding.primaryColor}
-            quotable={derived !== "started" && derived !== "abandoned"}
-          />
+          <Suspense fallback={<div className="h-[32rem] rounded-lg border border-slate-200 bg-white" />}>
+            <ConfiguratorPane
+              designId={design.id}
+              initialConfig={revision.config}
+              initialVersion={revision.version}
+              emailCaptured
+              profiles={profiles}
+              brandName={ctx.meta.branding.name}
+              mode="builder"
+              leadId={lead.id}
+              threeDEnabled={ctx.meta.entitlements.fullThreeD}
+              primaryColor={ctx.meta.branding.primaryColor}
+              quotable={derived !== "started" && derived !== "abandoned"}
+            />
+          </Suspense>
         )}
       </div>
     </div>

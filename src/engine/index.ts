@@ -51,6 +51,7 @@ export {
   maxGapFtFor,
 } from "./pieces.js";
 export { evenDistribute, evenBayLengthFt } from "./evenDistribute.js";
+export { migrateConfigToPhase8 } from "./migrate.js";
 export {
   floatingAreaFt2,
   suggestedWheelLayout,

@@ -88,6 +88,13 @@ export default function DockView3D({ config, primaryColor, fill = false }: { con
           geo.computeVertexNormals();
           mat.side = THREE.DoubleSide;
           scene.add(new THREE.Mesh(geo, mat));
+        } else if (b.kind === "wheel" && b.wheel) {
+          // Roll-in tire: a cylinder whose axis runs along z (rolls down-length).
+          const geo = new THREE.CylinderGeometry(b.wheel.radiusFt, b.wheel.radiusFt, b.d, 20);
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.rotation.x = Math.PI / 2; // lay the cylinder axis along z
+          mesh.position.set(b.x, b.y, b.z);
+          scene.add(mesh);
         } else {
           const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), mat);
           mesh.position.set(b.x, b.y, b.z);

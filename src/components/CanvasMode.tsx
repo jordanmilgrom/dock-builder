@@ -292,15 +292,18 @@ export default function CanvasMode({
           const b = pieceBbox(p);
           const c = wts((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2);
           const isSel = i === selectedIndex;
+          const isWheel = p.construction === "wheel" && p.pieceKind === "rectangle";
           return (
             <g key={i} onPointerDown={(e) => onPiecePointerDown(e, i)} style={{ cursor: "move" }}>
               <polygon
                 points={pts}
-                fill={isSel ? "#fde68a" : "#f5e6c8"}
+                fill={isWheel ? primaryColor : isSel ? "#fde68a" : "#f5e6c8"}
+                fillOpacity={isWheel ? 0.5 : 1}
                 stroke={isSel ? primaryColor : "#1f2937"}
                 strokeWidth={isSel ? 2.5 : 1.5}
               />
-              <text x={c.x} y={c.y} fontSize={12} textAnchor="middle" dominantBaseline="middle" fill="#475569">
+              {isWheel && <WheelGlyphs piece={p} wts={wts} scale={transform.scale} color={primaryColor} />}
+              <text x={c.x} y={c.y} fontSize={12} textAnchor="middle" dominantBaseline="middle" fill="#1f2937">
                 {p.pieceKind === "right_triangle" ? `${p.legAFt ?? 0}×${p.legBFt ?? 0}` : `${p.lengthFt ?? 0}×${p.widthFt ?? 0}`}
               </text>
             </g>
@@ -331,6 +334,45 @@ export default function CanvasMode({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Wheel-piece glyphs (Phase 8): two circles at the roll-in wheel positions
+ * (piece-local (0, w/2) and (length, w/2), radius ∝ width/8) plus thin bracket
+ * arms toward the deck centerline. Drawn at full tenant-primary over the 50%
+ * frame fill.
+ */
+function WheelGlyphs({
+  piece,
+  wts,
+  scale,
+  color,
+}: {
+  piece: DockPiece;
+  wts: (x: number, y: number) => { x: number; y: number };
+  scale: number;
+  color: string;
+}) {
+  const L = piece.lengthFt ?? 0, W = piece.widthFt ?? 0;
+  const rFt = Math.max(0.3, W / 8);
+  const deg = piece.rotationDeg;
+  const local: [number, number][] = [[0, W / 2], [L, W / 2]];
+  const center: [number, number] = [L / 2, W / 2];
+  const cs = (() => { const [rx, ry] = rot(center[0], center[1], deg); return wts(piece.posX + rx, piece.posY + ry); })();
+  return (
+    <g pointerEvents="none">
+      {local.map(([lx, ly], k) => {
+        const [rx, ry] = rot(lx, ly, deg);
+        const s = wts(piece.posX + rx, piece.posY + ry);
+        return (
+          <g key={k}>
+            <line x1={s.x} y1={s.y} x2={cs.x} y2={cs.y} stroke={color} strokeWidth={1.5} />
+            <circle cx={s.x} cy={s.y} r={Math.max(3, rFt * scale)} fill={color} stroke="#1f2937" strokeWidth={1} />
+          </g>
+        );
+      })}
+    </g>
   );
 }
 

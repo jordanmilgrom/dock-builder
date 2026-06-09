@@ -1,6 +1,6 @@
 "use client";
 
-import type { DockPiece, Rotation } from "@/engine";
+import type { DockPiece, PieceConstruction, Rotation } from "@/engine";
 import {
   clampPos,
   cycleRotation,
@@ -13,10 +13,16 @@ import {
 import { DebouncedNum, Panel, Row, Stepper } from "./PanelControls";
 
 /**
- * Selected-piece editor (Phase 7). Dimensions (6 in snap), position (1 ft snap),
- * rotation, a read-only per-piece construction note (Phase 8), and Delete. All
- * edits flow through `onUpdate` / `onDelete` — no engine logic here.
+ * Selected-piece editor (Phase 7 + 8). Dimensions (6 in snap), position (1 ft
+ * snap), rotation, per-piece construction (floating / pile / wheel), and Delete.
+ * All edits flow through `onUpdate` / `onDelete` — no engine logic here.
  */
+
+const CONSTRUCTIONS: { value: PieceConstruction; label: string; tip: string }[] = [
+  { value: "floating", label: "Floating", tip: "Floating: pontoons under deck, rises with water level — best for fluctuating water." },
+  { value: "pile", label: "Pile", tip: "Pile: posts driven into the lake bed, rigid platform — best for stable water and ice." },
+  { value: "wheel", label: "Wheel (roll-in)", tip: "Wheel (roll-in): seasonal removal, lightweight frame on wheels — best for shallow water and Midwest winters." },
+];
 export default function PieceProperties({
   piece,
   onUpdate,
@@ -88,8 +94,20 @@ export default function PieceProperties({
       </Panel>
 
       <Panel title="Construction">
+        <label className="block text-sm">
+          <span className="text-slate-600">How this piece is supported</span>
+          <select
+            value={piece.construction ?? "floating"}
+            onChange={(e) => onUpdate({ construction: e.target.value as PieceConstruction })}
+            className="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          >
+            {CONSTRUCTIONS.map((c) => (
+              <option key={c.value} value={c.value} title={c.tip}>{c.label}</option>
+            ))}
+          </select>
+        </label>
         <p className="text-xs text-slate-400">
-          Inherits dock type from design (Phase 8: per-piece floating / pile / wheel).
+          {CONSTRUCTIONS.find((c) => c.value === (piece.construction ?? "floating"))?.tip}
         </p>
       </Panel>
 

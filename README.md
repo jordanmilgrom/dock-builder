@@ -173,5 +173,8 @@ Later phases (not built yet) per §8:
 - **Phase 7** — Canvas-first IA: a full-pane Canvas editor with a Canvas/Schematic/3D
   view switcher and a right-rail Properties panel; the questionnaire becomes an
   opt-in wizard. UI/IA only — engines unchanged. See [PHASE7.md](PHASE7.md).
+- **Phase 8** — Hybrid construction: per-piece `construction` (floating / pile /
+  wheel) and `evenDistribute` support spacing across floats + piles. See
+  [PHASE8.md](PHASE8.md).
 
 The engines here are the stable foundation those phases consume.

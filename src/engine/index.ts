@@ -35,16 +35,27 @@ export {
   worldBounds,
   floatLayoutForPiece,
   pileLayoutForPiece,
+  wheelLayoutForPiece,
   allFloatPositions,
   allPilePositions,
-  pieceCantilever,
+  allWheelPositions,
+  pileLastBayShort,
+  defaultConstructionFor,
   pieceBBox,
   bboxesShareEdge,
   floatFootprintFor,
   insetFloatToFootprint,
   FLOAT_FOOTPRINT_FT,
+  MAX_ROW_GAP_FT,
   bayFtFor,
+  maxGapFtFor,
 } from "./pieces.js";
+export { evenDistribute, evenBayLengthFt } from "./evenDistribute.js";
+export {
+  floatingAreaFt2,
+  suggestedWheelLayout,
+  wheelCount,
+} from "./geometry.js";
 export type { BBox } from "./pieces.js";
 export type { NormalizedPiece } from "./pieces.js";
 export { recommendDockType } from "./recommendation.js";

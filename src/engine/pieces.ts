@@ -13,7 +13,20 @@
  */
 
 import { FLOAT_PLACEMENT, MAX_SECTION, PILE_BAY, floatRowCount } from "./constants.js";
-import type { DockConfig, DockPiece, PieceKind, Rotation } from "./types.js";
+import { evenBayLengthFt, evenDistribute } from "./evenDistribute.js";
+import type { DockConfig, DockPiece, DockType, PieceConstruction, PieceKind, Rotation } from "./types.js";
+
+/** Float rows are distributed across the width with this max gap (Phase 8). */
+export const MAX_ROW_GAP_FT = 6;
+
+/**
+ * Default construction for a piece that doesn't carry its own (back-compat):
+ * the design's dockType, with the fixed types collapsing to `pile` and `pipe`
+ * mapping to `pile` until pipe construction ships (§10 Phase 8).
+ */
+export function defaultConstructionFor(dockType: DockType): PieceConstruction {
+  return dockType === "floating" ? "floating" : "pile";
+}
 
 const round = (n: number, dp = 2): number => {
   const f = 10 ** dp;
@@ -37,9 +50,11 @@ export interface NormalizedPiece {
   widthFt: number;
   legAFt: number;
   legBFt: number;
+  /** Phase 8: resolved per-piece construction (defaults from the design dockType). */
+  construction: PieceConstruction;
 }
 
-function normalize(p: DockPiece): NormalizedPiece {
+function normalize(p: DockPiece, defaultConstruction: PieceConstruction): NormalizedPiece {
   const isTri = p.pieceKind === "right_triangle";
   const legAFt = p.legAFt ?? p.lengthFt ?? 0;
   const legBFt = p.legBFt ?? p.widthFt ?? 0;
@@ -52,6 +67,7 @@ function normalize(p: DockPiece): NormalizedPiece {
     widthFt: isTri ? legBFt : p.widthFt ?? 0,
     legAFt,
     legBFt,
+    construction: p.construction ?? defaultConstruction,
   };
 }
 
@@ -64,15 +80,16 @@ function maxFloatingLen(config: DockConfig): number {
 
 /** Resolve a config into normalized, world-placed pieces. */
 export function resolvePieces(config: DockConfig): NormalizedPiece[] {
+  const dc = defaultConstructionFor(config.dockType);
   if (config.pieces && config.pieces.length > 0) {
-    return config.pieces.map(normalize);
+    return config.pieces.map((p) => normalize(p, dc));
   }
 
   // Back-compat: chain rectangles end-to-end from (0,0) along the length axis.
   if (config.sections && config.sections.length > 0) {
     let x = 0;
     return config.sections.map((s) => {
-      const piece = normalize({ pieceKind: "rectangle", posX: x, posY: 0, rotationDeg: 0, lengthFt: s.lengthFt, widthFt: s.widthFt });
+      const piece = normalize({ pieceKind: "rectangle", posX: x, posY: 0, rotationDeg: 0, lengthFt: s.lengthFt, widthFt: s.widthFt }, dc);
       x += s.lengthFt;
       return piece;
     });
@@ -89,13 +106,13 @@ export function resolvePieces(config: DockConfig): NormalizedPiece[] {
       let x = 0;
       const out: NormalizedPiece[] = [];
       for (let i = 0; i < n; i++) {
-        out.push(normalize({ pieceKind: "rectangle", posX: x, posY: 0, rotationDeg: 0, lengthFt: per, widthFt }));
+        out.push(normalize({ pieceKind: "rectangle", posX: x, posY: 0, rotationDeg: 0, lengthFt: per, widthFt }, dc));
         x += per;
       }
       return out;
     }
   }
-  return [normalize({ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt, widthFt })];
+  return [normalize({ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt, widthFt }, dc)];
 }
 
 /** Area of one piece (triangle = legA·legB/2). */
@@ -192,41 +209,32 @@ export function worldBounds(pieces: NormalizedPiece[]): { minX: number; minY: nu
 
 // ---- float layout ----------------------------------------------------------
 
-/** Evenly spaced ticks across [0, len] with at least `min` points (ends included). */
-function spread(len: number, maxSpacing: number, min: number): number[] {
-  const segments = Math.max(min - 1, Math.ceil(len / maxSpacing));
-  const out: number[] = [];
-  for (let i = 0; i <= segments; i++) out.push(round((len * i) / segments));
-  return out;
-}
-
 /**
- * Float positions for one piece (Phase 6 industry rule): two rows minimum, +1
- * row per full 6 ft of width, a float at every corner, ≤ 8 ft along each row.
+ * Float positions for one floating piece (Phase 8): two rows minimum, +1 row per
+ * full 6 ft of width, floats EVEN-DISTRIBUTED along the length with a max gap of
+ * `maxGapFt` (no short last bay), rows even-distributed across the width.
+ *
+ * Returns [] for non-floating pieces (per-piece construction is the source of
+ * truth) and for right triangles — connectors carry no flotation of their own;
+ * the adjacent rectangle's floats support them.
  */
-/**
- * Float positions for one piece. Right triangles are CONNECTOR pieces (corner
- * cuts / bridges between rectangles) — they carry no flotation of their own; the
- * adjacent rectangle's floats (sized to the whole deck area) support them. So a
- * triangle returns no float positions.
- */
-export function floatLayoutForPiece(p: NormalizedPiece): PlacementFt[] {
+export function floatLayoutForPiece(p: NormalizedPiece, maxGapFt: number = FLOAT_PLACEMENT.maxSpacingFt): PlacementFt[] {
+  if (p.construction !== "floating") return [];
   if (p.kind === "right_triangle") return [];
-  const max = FLOAT_PLACEMENT.maxSpacingFt;
   const rows = floatRowCount(p.widthFt);
-  const xs = spread(p.lengthFt, max, 2); // corners + ≤ 8 ft along length
+  const xs = evenDistribute(p.lengthFt, maxGapFt); // corners + even bays ≤ maxGap
   const out: PlacementFt[] = [];
   for (let r = 0; r < rows; r++) {
     const y = round((p.widthFt * r) / (rows - 1));
-    for (const x of xs) out.push(toWorld(p, x, y));
+    for (const x of xs) out.push(toWorld(p, round(x), y));
   }
   return out;
 }
 
-/** Aggregate float positions for a floating dock across all pieces. */
+/** Aggregate float positions across all FLOATING pieces (per-piece construction). */
 export function allFloatPositions(config: DockConfig): PlacementFt[] {
-  if (config.dockType !== "floating") return [];
-  return resolvePieces(config).flatMap(floatLayoutForPiece);
+  const maxGap = maxGapFtFor(config);
+  return resolvePieces(config).flatMap((p) => floatLayoutForPiece(p, maxGap));
 }
 
 /** A float symbol's footprint (ft): 48"×24", swapped for 90°/270° pieces. */
@@ -260,61 +268,72 @@ export function insetFloatToFootprint(pos: PlacementFt, p: NormalizedPiece): Pla
 
 // ---- pile layout -----------------------------------------------------------
 
-/** Grid ticks on [0, len] at `bay` spacing, always including both ends. */
-function gridTicks(len: number, bay: number): number[] {
-  const out = [0];
-  for (let t = bay; t < len - 0.01; t += bay) out.push(round(t));
-  if (len > 0) out.push(round(len));
-  return out;
-}
-
-export function bayFtFor(config: DockConfig): number {
-  const b = config.overall.bayFt;
+/**
+ * The even-distribute max gap (ft) for both floats and piles (Phase 8). Reads
+ * `overall.maxGapFt`, falling back to the Phase 6 `overall.bayFt`, then the
+ * default; clamped to [minFt, maxFt].
+ */
+export function maxGapFtFor(config: DockConfig): number {
+  const b = config.overall.maxGapFt ?? config.overall.bayFt;
   if (b == null) return PILE_BAY.defaultFt;
   return Math.min(PILE_BAY.maxFt, Math.max(PILE_BAY.minFt, b));
 }
 
+/** @deprecated Phase 6 name for {@link maxGapFtFor}; kept for back-compat callers. */
+export const bayFtFor = maxGapFtFor;
+
 /**
- * Pile positions for one piece (Phase 6): a pile at every corner (3 for a
- * triangle, 4 for a rectangle) plus internal piles on the bay grid. No deck
- * overhang — dimensions are expected to align to the grid (validated elsewhere).
+ * Pile positions for one pile piece (Phase 8): corner piles always present, with
+ * interior piles on the even-distribute grid intersection along both axes — no
+ * short last bay, no overhang. Returns [] for non-pile pieces and triangles
+ * (connectors draw support from the adjacent rectangle's piles).
  */
-export function pileLayoutForPiece(p: NormalizedPiece, bay: number): PlacementFt[] {
-  // Right triangles are connectors — the adjacent rectangle's piles support them;
-  // no pile is placed on the triangle itself.
+export function pileLayoutForPiece(p: NormalizedPiece, maxGapFt: number): PlacementFt[] {
+  if (p.construction !== "pile") return [];
   if (p.kind === "right_triangle") return [];
-  const xs = gridTicks(p.lengthFt, bay);
-  const ys = gridTicks(p.widthFt, bay);
+  const xs = evenDistribute(p.lengthFt, maxGapFt);
+  const ys = evenDistribute(p.widthFt, maxGapFt);
   const out: PlacementFt[] = [];
-  for (const x of xs) for (const y of ys) out.push(toWorld(p, x, y));
+  for (const x of xs) for (const y of ys) out.push(toWorld(p, round(x), round(y)));
   return out;
 }
 
-/** Aggregate pile positions for a fixed dock across all pieces. */
+/** Aggregate pile positions across all PILE pieces (per-piece construction). */
 export function allPilePositions(config: DockConfig): PlacementFt[] {
-  if (config.dockType === "floating" || config.dockType === "suspension") return [];
-  const bay = bayFtFor(config);
-  return resolvePieces(config).flatMap((p) => pileLayoutForPiece(p, bay));
+  const maxGap = maxGapFtFor(config);
+  return resolvePieces(config).flatMap((p) => pileLayoutForPiece(p, maxGap));
+}
+
+// ---- wheel (roll-in) layout -------------------------------------------------
+
+/**
+ * Wheel positions for one roll-in piece (Phase 8): two wheels per rectangle, one
+ * centered at each long-axis end — local (0, widthFt/2) and (lengthFt, widthFt/2).
+ * No interior wheels. Returns [] for non-wheel pieces and triangles.
+ */
+export function wheelLayoutForPiece(p: NormalizedPiece): PlacementFt[] {
+  if (p.construction !== "wheel") return [];
+  if (p.kind === "right_triangle") return [];
+  return [toWorld(p, 0, p.widthFt / 2), toWorld(p, p.lengthFt, p.widthFt / 2)];
+}
+
+/** Aggregate wheel positions across all WHEEL pieces. */
+export function allWheelPositions(config: DockConfig): PlacementFt[] {
+  return resolvePieces(config).flatMap(wheelLayoutForPiece);
 }
 
 /**
- * Whether a rectangle piece's RUN (length, the bay direction) aligns to the bay
- * grid. A non-aligned length means the deck would cantilever past the last pile
- * line — disallowed in residential pile construction. Width is supported by the
- * edge (corner) pile lines either way, and triangles are exempt (corner piles +
- * internal grid suffice). Returns the nearest valid length when misaligned.
+ * Even-distribute guarantees no overhang, so cantilever is never an error. But a
+ * run whose equal bays fall well under the max gap reads as visually lopsided —
+ * surface that as an advisory. Fires when the (uniform) bay length is < 75% of
+ * the max gap. Rectangles only.
  */
-export function pieceCantilever(
+export function pileLastBayShort(
   p: NormalizedPiece,
-  bay: number,
-): { ok: true } | { ok: false; dim: "length"; value: number; nearest: number } {
-  if (p.kind !== "rectangle") return { ok: true };
-  const value = p.lengthFt;
-  const rem = value % bay;
-  const off = Math.min(rem, bay - rem);
-  if (off > PILE_BAY.toleranceFt) {
-    const nearest = Math.max(bay, Math.round(value / bay) * bay);
-    return { ok: false, dim: "length", value, nearest };
-  }
-  return { ok: true };
+  maxGapFt: number,
+): { short: false } | { short: true; bayLengthFt: number } {
+  if (p.kind !== "rectangle") return { short: false };
+  const bay = evenBayLengthFt(p.lengthFt, maxGapFt);
+  if (bay > 0 && bay < 0.75 * maxGapFt) return { short: true, bayLengthFt: round(bay) };
+  return { short: false };
 }

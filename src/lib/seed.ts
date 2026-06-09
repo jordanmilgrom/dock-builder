@@ -91,6 +91,9 @@ function defaultItems(): PricingItem[] {
     { key: "flotation_per_float", unit: "per_float", unitPrice: 125 },
     { key: "connector_each", unit: "each", unitPrice: 90 },
     { key: "piling_per_pile", unit: "per_pile", unitPrice: 240 },
+    // Phase 8: roll-in (wheel) hardware — off-the-shelf shallow-water kit pricing
+    // (wheel + bracket arm per support; ~2 per piece).
+    { key: "wheel_per_wheel", unit: "per_wheel", unitPrice: 310 },
     { key: "gangway_per_linear_ft", unit: "per_linear_ft", unitPrice: 145 },
     { key: "builtin_step_each", unit: "each", unitPrice: 380 },
     { key: "accessory_cleat", unit: "each", unitPrice: 38 },

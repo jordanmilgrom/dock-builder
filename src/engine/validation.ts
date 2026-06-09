@@ -34,7 +34,7 @@ import {
   pilingCount,
   requiredBuoyancyLbs,
 } from "./geometry.js";
-import { bayFtFor, bboxesShareEdge, pieceBBox, pieceCantilever, resolvePieces } from "./pieces.js";
+import { bboxesShareEdge, maxGapFtFor, pieceBBox, pileLastBayShort, resolvePieces } from "./pieces.js";
 import type {
   DockConfig,
   ValidationIssue,
@@ -77,7 +77,10 @@ export function validationEngine(config: DockConfig): ValidationResult {
   // Phase 6: all structural checks run over the resolved PIECES (back-compat
   // shim turns legacy sections/overall into rectangle pieces).
   const pieces = resolvePieces(config);
-  const bay = bayFtFor(config);
+  const bay = maxGapFtFor(config);
+  // Phase 8: support presence is per-piece construction, not the design dockType.
+  const hasPilePieces = pieces.some((p) => p.construction === "pile");
+  const hasFloatingPieces = pieces.some((p) => p.construction === "floating");
   // Rectangle pieces carry length/width section semantics; triangles are fills.
   const rectPieces = pieces
     .map((p, idx) => ({ idx, lengthFt: p.lengthFt, widthFt: p.widthFt, isRect: p.kind === "rectangle" }))
@@ -108,29 +111,28 @@ export function validationEngine(config: DockConfig): ValidationResult {
   // the BAY, not the piece length. A bay larger than the span is an error; the
   // bay-bent support is always described as an auto-fix; and any rectangle whose
   // run doesn't land on the grid would cantilever past the last pile (error).
-  const isFixed =
-    config.dockType === "pile" ||
-    config.dockType === "pipe" ||
-    config.dockType === "crib";
-  if (isFixed) {
+  if (hasPilePieces) {
     if (bay > span) {
       err(
         "joist_span_exceeded",
-        `Pile bay ${bay} ft exceeds the joist span (${span} ft) for ${config.overall.joistSize ?? "2x8"} @ ${spacing}in OC — reduce the bay or upsize the joists.`,
-        "overall.bayFt",
+        `Pile bay ${bay} ft exceeds the joist span (${span} ft) for ${config.overall.joistSize ?? "2x8"} @ ${spacing}in OC — reduce the max gap or upsize the joists.`,
+        "overall.maxGapFt",
       );
     }
     autoFixes.push(
-      `Support on pile bents every ${bay} ft (${pilingCount(config)} piles total).`,
+      `Support pile pieces on bents every ≤ ${bay} ft (${pilingCount(config)} piles total).`,
     );
+    // Phase 8: even-distribute guarantees no cantilever, so pile_cantilever is
+    // gone. A pile run whose equal bays fall well under the max gap is only an
+    // advisory (visual symmetry), not an error.
     for (let i = 0; i < pieces.length; i++) {
       const p = pieces[i]!;
-      if (p.kind !== "rectangle") continue;
-      const c = pieceCantilever(p, bay);
-      if (!c.ok) {
-        err(
-          "pile_cantilever",
-          `Piece ${i + 1} ${c.dim} ${c.value} ft doesn't align to the ${bay} ft pile bay grid — residential pile docks can't cantilever past the piles. Use ${c.nearest} ft.`,
+      if (p.kind !== "rectangle" || p.construction !== "pile") continue;
+      const last = pileLastBayShort(p, bay);
+      if (last.short) {
+        warn(
+          "pile_lastbay_short",
+          `Piece ${i + 1} pile bays are ${last.bayLengthFt} ft (max gap ${bay} ft). Consider adjusting piece length to multiples of the max gap for visual symmetry.`,
           `pieces[${i}].lengthFt`,
         );
       }
@@ -181,15 +183,45 @@ export function validationEngine(config: DockConfig): ValidationResult {
   // Right triangles carry no float/pile of their own (they cut corners / bridge
   // sections). One that shares no edge with a rectangle has no buoyancy/support
   // source — advisory only.
-  const bboxes = pieces.map((p) => ({ kind: p.kind, bbox: pieceBBox(p) }));
+  const bboxes = pieces.map((p) => ({ kind: p.kind, construction: p.construction, bbox: pieceBBox(p) }));
   for (let i = 0; i < bboxes.length; i++) {
     const me = bboxes[i]!;
     if (me.kind !== "right_triangle") continue;
-    const adjacent = bboxes.some((o, j) => j !== i && o.kind === "rectangle" && bboxesShareEdge(me.bbox, o.bbox));
-    if (!adjacent) {
+    const adjacentRects = bboxes.filter((o, j) => j !== i && o.kind === "rectangle" && bboxesShareEdge(me.bbox, o.bbox));
+    if (adjacentRects.length === 0) {
       warn(
         "triangle_isolated",
         `Triangle piece ${i + 1} doesn't share an edge with a rectangle — connector triangles draw buoyancy/support from an adjacent rectangle. Attach it to a rectangle piece.`,
+        `pieces[${i}]`,
+      );
+      continue;
+    }
+    // Phase 8: a triangle inherits support from its adjacent rectangle; flag a
+    // construction mismatch so the user sets them the same.
+    const mismatch = adjacentRects.find((o) => o.construction !== me.construction);
+    if (mismatch) {
+      warn(
+        "triangle_construction_mismatch",
+        `Triangle piece ${i + 1} has construction=${me.construction} but its adjacent rectangle has construction=${mismatch.construction}. Triangle connectors inherit support from the adjacent rectangle — set them to the same construction.`,
+        `pieces[${i}].construction`,
+      );
+    }
+  }
+
+  // --- Phase 8: mixed-construction adjacency (transition zone) -------------
+  // Two adjacent rectangles with different construction form a valid transition
+  // (e.g. floating → pile) but need the right connector hardware — advisory.
+  for (let i = 0; i < bboxes.length; i++) {
+    const a = bboxes[i]!;
+    if (a.kind !== "rectangle") continue;
+    for (let j = i + 1; j < bboxes.length; j++) {
+      const b = bboxes[j]!;
+      if (b.kind !== "rectangle") continue;
+      if (a.construction === b.construction) continue;
+      if (!bboxesShareEdge(a.bbox, b.bbox)) continue;
+      warn(
+        "mixed_construction_adjacency",
+        `Piece ${i + 1} (construction=${a.construction}) meets piece ${j + 1} (construction=${b.construction}) at a shared edge. This is a valid transition zone — verify the connector hardware (typically a hinged bracket sized for the expected float travel).`,
         `pieces[${i}]`,
       );
     }
@@ -197,7 +229,7 @@ export function validationEngine(config: DockConfig): ValidationResult {
 
   // --- §3.1 Flotation ------------------------------------------------------
   const fb = freeboard(config);
-  if (config.dockType === "floating") {
+  if (hasFloatingPieces) {
     if (fb.submergenceFraction != null) {
       if (fb.submergenceFraction > SUBMERGENCE.hardMax) {
         err(

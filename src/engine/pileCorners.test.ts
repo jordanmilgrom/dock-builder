@@ -25,13 +25,15 @@ describe("pile corners + bay grid (Phase 6)", () => {
     expect(validationEngine(c).ok).toBe(true);
   });
 
-  it("a 17×8 piece raises pile_cantilever (length off the 8 ft grid)", () => {
+  it("Phase 8: a 17×8 piece even-distributes (no cantilever) but advises on short bays", () => {
+    // 17 ft / ceil(17/8)=3 → three equal ~5.67 ft bays: 4 pile lines along length.
     const c = pileConfig({ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 17, widthFt: 8 });
+    const piece = resolvePieces(c)[0]!;
+    expect(pileLayoutForPiece(piece, 8)).toHaveLength(4 * 2); // 4 along length × 2 across width
     const result = validationEngine(c);
-    expect(result.ok).toBe(false);
-    expect(result.errors.map((e) => e.code)).toContain("pile_cantilever");
-    // The message suggests the nearest valid length.
-    expect(result.errors.find((e) => e.code === "pile_cantilever")!.message).toMatch(/16 ft/);
+    expect(result.ok).toBe(true); // advisory, not an error
+    expect(result.errors.map((e) => e.code)).not.toContain("pile_cantilever");
+    expect(result.warnings.map((e) => e.code)).toContain("pile_lastbay_short");
   });
 
   it("places a pile at every corner (rectangle = 4 minimum)", () => {

@@ -23,6 +23,8 @@ export interface TenantMeta {
   entitlements: Entitlements;
   leadCap: number | null;
   abandonedThresholdDays: number;
+  /** Phase 7: Premium tenants may land customers straight on the Canvas (skip the wizard). */
+  skipWizardByDefault: boolean;
   branding: {
     name: string;
     logoText: string;
@@ -115,6 +117,7 @@ function toMeta(t: TenantRow): TenantMeta {
     entitlements: t.entitlements as unknown as Entitlements,
     leadCap: t.leadCap ?? null,
     abandonedThresholdDays: t.abandonedThresholdDays,
+    skipWizardByDefault: t.skipWizardByDefault ?? false,
     branding: {
       name: b?.name ?? t.name,
       logoText: b?.logoText ?? t.name.toUpperCase(),

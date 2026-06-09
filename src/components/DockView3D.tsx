@@ -29,7 +29,7 @@ function loadThree(): Promise<boolean> {
   });
 }
 
-export default function DockView3D({ config, primaryColor }: { config: DockConfig; primaryColor?: string }) {
+export default function DockView3D({ config, primaryColor, fill = false }: { config: DockConfig; primaryColor?: string; fill?: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
@@ -48,7 +48,7 @@ export default function DockView3D({ config, primaryColor }: { config: DockConfi
       }
       const spec = buildSceneSpec(config, primaryColor ? { float: primaryColor } : undefined);
       const width = mount.clientWidth || 480;
-      const height = 360;
+      const height = (fill ? mount.clientHeight : 0) || 360;
 
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#eef2f7");
@@ -149,14 +149,14 @@ export default function DockView3D({ config, primaryColor }: { config: DockConfi
     });
 
     return () => { disposed = true; cleanup(); };
-  }, [config, primaryColor]);
+  }, [config, primaryColor, fill]);
 
   if (failed) {
     return (
-      <div className="flex h-[360px] items-center justify-center rounded border border-slate-200 bg-slate-50 text-sm text-slate-500">
+      <div className={`flex items-center justify-center rounded border border-slate-200 bg-slate-50 text-sm text-slate-500 ${fill ? "h-full" : "h-[360px]"}`}>
         3D viewer couldn’t load — showing the schematic is still available.
       </div>
     );
   }
-  return <div ref={mountRef} className="h-[360px] w-full overflow-hidden rounded border border-slate-200 bg-slate-100" />;
+  return <div ref={mountRef} className={`w-full overflow-hidden rounded border border-slate-200 bg-slate-100 ${fill ? "h-full" : "h-[360px]"}`} />;
 }

@@ -8,15 +8,18 @@ export interface BrandingInitial {
   primaryColor: string;
   secondaryColor: string;
   removeBadge: boolean;
+  skipWizardByDefault: boolean;
   slug: string;
 }
 
 export default function BrandingEditor({
   initial,
   canRemoveBadge,
+  canSkipWizard,
 }: {
   initial: BrandingInitial;
   canRemoveBadge: boolean;
+  canSkipWizard: boolean;
 }) {
   const [b, setB] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -59,6 +62,10 @@ export default function BrandingEditor({
       <label className={`mt-3 flex items-center gap-2 text-sm ${canRemoveBadge ? "text-slate-700" : "text-slate-400"}`}>
         <input type="checkbox" disabled={!canRemoveBadge} checked={b.removeBadge} onChange={(e) => set("removeBadge", e.target.checked)} />
         Remove &quot;Powered by&quot; badge {canRemoveBadge ? "" : "(Pro & Premium)"}
+      </label>
+      <label className={`mt-2 flex items-center gap-2 text-sm ${canSkipWizard ? "text-slate-700" : "text-slate-400"}`}>
+        <input type="checkbox" disabled={!canSkipWizard} checked={b.skipWizardByDefault} onChange={(e) => set("skipWizardByDefault", e.target.checked)} />
+        Skip the start-up questionnaire — open customers straight on the canvas {canSkipWizard ? "" : "(Premium)"}
       </label>
       <div className="mt-4 flex items-center gap-3">
         <button onClick={save} disabled={busy} className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50">

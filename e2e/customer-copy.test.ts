@@ -13,9 +13,17 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Customer-facing component + page files (no builder/admin paths here).
 const CUSTOMER_FILES = [
-  "src/components/Configurator.tsx",
+  "src/components/ConfiguratorPane.tsx",
+  "src/components/CanvasMode.tsx",
+  "src/components/CanvasLanding.tsx",
+  "src/components/SchematicMode.tsx",
+  "src/components/ThreeDMode.tsx",
+  "src/components/PropertiesPanel.tsx",
+  "src/components/PieceProperties.tsx",
+  "src/components/DesignProperties.tsx",
+  "src/components/PanelControls.tsx",
+  "src/components/CustomPieceModal.tsx",
   "src/components/SaveGate.tsx",
-  "src/components/QuestionnaireForm.tsx",
   "src/components/ViewsPanel.tsx",
   "src/components/RevisionList.tsx",
   "src/components/CustomerStatusBadge.tsx",

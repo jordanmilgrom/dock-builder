@@ -1,5 +1,6 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import Configurator from "@/components/Configurator";
+import ConfiguratorPane from "@/components/ConfiguratorPane";
 import EmbedResizer from "@/components/EmbedResizer";
 import { getCustomerSession } from "@/lib/session";
 import { getTenantContext, loadProfiles } from "@/lib/tenant";
@@ -23,17 +24,19 @@ export default async function EmbedDesignPage({ params }: { params: { id: string
     <div className="space-y-3">
       <EmbedResizer />
       <h1 className="text-base font-bold text-slate-900">{design.name}</h1>
-      <Configurator
-        designId={design.id}
-        initialConfig={revision.config}
-        initialVersion={revision.version}
-        emailCaptured={Boolean(customer?.email)}
-        profiles={profiles}
-        brandName={ctx.meta.branding.name}
-        alreadySubmitted={design.status === "submitted"}
-        threeDEnabled={ctx.meta.entitlements.fullThreeD}
-        primaryColor={ctx.meta.branding.primaryColor}
-      />
+      <Suspense fallback={<div className="h-[32rem] rounded-lg border border-slate-200 bg-white" />}>
+        <ConfiguratorPane
+          designId={design.id}
+          initialConfig={revision.config}
+          initialVersion={revision.version}
+          emailCaptured={Boolean(customer?.email)}
+          profiles={profiles}
+          brandName={ctx.meta.branding.name}
+          alreadySubmitted={design.status === "submitted"}
+          threeDEnabled={ctx.meta.entitlements.fullThreeD}
+          primaryColor={ctx.meta.branding.primaryColor}
+        />
+      </Suspense>
     </div>
   );
 }

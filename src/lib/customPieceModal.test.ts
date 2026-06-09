@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CUSTOM_DIM_MAX, CUSTOM_DIM_MIN, buildCustomPiece, isValidCustomDim } from "@/components/DockPiecesCanvas";
+import { CUSTOM_DIM_MAX, CUSTOM_DIM_MIN, buildCustomPiece, isValidCustomDim } from "@/components/CustomPieceModal";
 
-const SRC = resolve(dirname(fileURLToPath(import.meta.url)), "../components/DockPiecesCanvas.tsx");
+const SRC = resolve(dirname(fileURLToPath(import.meta.url)), "../components/CustomPieceModal.tsx");
 
 describe("custom-piece modal (replaces window.prompt)", () => {
   it("validates integer dimensions in [1, 32]", () => {

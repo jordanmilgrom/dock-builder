@@ -1,4 +1,4 @@
-import QuestionnaireForm from "@/components/QuestionnaireForm";
+import CanvasLanding from "@/components/CanvasLanding";
 import EmbedResizer from "@/components/EmbedResizer";
 import { getTenantContext } from "@/lib/tenant";
 
@@ -27,7 +27,7 @@ export default async function EmbedHome() {
     <div className="space-y-3">
       <EmbedResizer />
       <h1 className="text-lg font-bold text-slate-900">Design your dock</h1>
-      <QuestionnaireForm defaultSite={null} basePath="/embed/design" templates={templates} />
+      <CanvasLanding defaultSite={null} basePath="/embed/design" templates={templates} skipWizardByDefault={ctx.meta.skipWizardByDefault} />
     </div>
   );
 }

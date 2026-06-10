@@ -70,6 +70,8 @@ export function triangleVertices(
 export interface SceneSpec {
   boxes: SceneBox[];
   bounds: { lengthFt: number; widthFt: number };
+  /** Absolute world bounding box (feet, top-down x/z) for camera framing. */
+  box: { minX: number; minZ: number; maxX: number; maxZ: number };
 }
 
 export interface SceneColors {
@@ -188,7 +190,12 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
   }
 
   const b = worldBounds(pieces);
-  return { boxes, bounds: { lengthFt: Math.max(1, b.maxX - b.minX), widthFt: Math.max(1, b.maxY - b.minY) } };
+  return {
+    boxes,
+    bounds: { lengthFt: Math.max(1, b.maxX - b.minX), widthFt: Math.max(1, b.maxY - b.minY) },
+    // Absolute world box (feet) so the viewer can frame OFF-ORIGIN designs.
+    box: { minX: b.minX, minZ: b.minY, maxX: b.maxX, maxZ: b.maxY },
+  };
 }
 
 /** Whether Three.js (r128 from CDN) has attached to the global. SSR-safe. */

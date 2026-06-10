@@ -20,6 +20,7 @@ import {
   snapTriangle,
   type Handle,
 } from "@/lib/resizeHandles";
+import { svgPoint } from "@/lib/svgPoint";
 
 const POS_SNAP_FT = 1; // drag reposition grid
 
@@ -100,6 +101,7 @@ export default function CanvasMode({
   primaryColor?: string;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ width: 800, height: 500 });
   const [transform, setTransform] = useState<Transform>({ translate: { x: 0, y: 0 }, scale: 12 });
   const action = useRef<Action>(null);
@@ -143,14 +145,16 @@ export default function CanvasMode({
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, [onSelect]);
 
-  function svgPoint(e: React.PointerEvent | React.WheelEvent): { x: number; y: number } {
-    const r = (e.currentTarget as Element).getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  // Always measure against the stable <svg> ref — NEVER e.currentTarget, which is
+  // the clicked child on pointerdown and null on a stashed move/up event (the
+  // root cause of pieces flying to NaN on drag/resize).
+  function svgPt(e: React.PointerEvent | React.WheelEvent): { x: number; y: number } {
+    return svgPoint(e.clientX, e.clientY, svgRef.current?.getBoundingClientRect() ?? null);
   }
 
   function onWheel(e: React.WheelEvent) {
     e.preventDefault();
-    setTransform((t) => zoomAround(t, notchFactor(e.deltaY), svgPoint(e)));
+    setTransform((t) => zoomAround(t, notchFactor(e.deltaY), svgPt(e)));
   }
 
   function startPan(e: React.PointerEvent) {
@@ -168,7 +172,7 @@ export default function CanvasMode({
     if (e.button === 1 || spaceHeld.current) { startPan(e); return; }
     onSelect(idx);
     const p = pieces[idx]!;
-    const sp = svgPoint(e);
+    const sp = svgPt(e);
     action.current = {
       kind: "move", idx, startWorld: screenToWorld(transform, sp.x, sp.y), origX: p.posX, origY: p.posY,
     };
@@ -177,7 +181,7 @@ export default function CanvasMode({
 
   function onHandlePointerDown(e: React.PointerEvent, idx: number, handle: Handle) {
     e.stopPropagation();
-    const sp = svgPoint(e);
+    const sp = svgPt(e);
     action.current = {
       kind: "resize", idx, handle, startWorld: screenToWorld(transform, sp.x, sp.y), orig: pieces[idx]!,
     };
@@ -198,7 +202,7 @@ export default function CanvasMode({
       a.lastX = e.clientX; a.lastY = e.clientY;
       return;
     }
-    const sp = svgPoint(e);
+    const sp = svgPt(e);
     const w = screenToWorld(transform, sp.x, sp.y);
     if (a.kind === "move") {
       update(a.idx, {
@@ -236,6 +240,15 @@ export default function CanvasMode({
       const p = pieces[a.idx];
       if (p) update(a.idx, { rotationDeg: (a.moved ? (snap(p.rotationDeg, 90) % 360) : ((p.rotationDeg + 90) % 360)) as Rotation });
     }
+    // If a drag/resize/rotate left the piece off-screen, re-frame so it never vanishes.
+    if (a.kind !== "pan" && pieces[a.idx] && isOffscreen(pieceBbox(pieces[a.idx]!))) fit();
+  }
+
+  /** True when a world bbox falls entirely outside the current viewport. */
+  function isOffscreen(b: Bbox): boolean {
+    const tl = worldToScreen(transform, b.minX, b.minY);
+    const br = worldToScreen(transform, b.maxX, b.maxY);
+    return br.x < 0 || tl.x > size.width || br.y < 0 || tl.y > size.height;
   }
 
   function update(idx: number, patch: Partial<DockPiece>) {
@@ -272,6 +285,7 @@ export default function CanvasMode({
   return (
     <div ref={wrapRef} className="relative h-full w-full overflow-hidden bg-sky-50">
       <svg
+        ref={svgRef}
         width={size.width}
         height={size.height}
         className="block touch-none select-none"

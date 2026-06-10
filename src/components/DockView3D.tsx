@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { DockConfig } from "@/engine";
 import { buildSceneSpec, isThreeAvailable, THREE_CDN_URL } from "@/lib/view3d";
+import { frameCamera } from "@/lib/view3dCamera";
 
 /**
  * Interactive 3D viewer (Three.js r128 from CDN). Loaded via dynamic
@@ -53,10 +54,9 @@ export default function DockView3D({ config, primaryColor, fill = false }: { con
       const scene = new THREE.Scene();
       scene.background = new THREE.Color("#eef2f7");
       const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
-      const { lengthFt, widthFt } = spec.bounds;
-      const span = Math.max(lengthFt, widthFt);
-      camera.position.set(lengthFt * 0.8, span * 0.9, widthFt * 1.6 + span);
-      camera.lookAt(lengthFt / 2, 0, widthFt / 2);
+      const span = Math.max(spec.bounds.lengthFt, spec.bounds.widthFt);
+      // Frame the actual (possibly off-origin) bbox center — not bbox sizes.
+      const framing = frameCamera(spec.box);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(width, height);
@@ -64,7 +64,7 @@ export default function DockView3D({ config, primaryColor, fill = false }: { con
 
       scene.add(new THREE.AmbientLight(0xffffff, 0.7));
       const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-      dir.position.set(lengthFt, span * 2, widthFt);
+      dir.position.set(framing.target.x + span, span * 2, framing.target.z + span);
       scene.add(dir);
 
       for (const b of spec.boxes) {
@@ -107,7 +107,7 @@ export default function DockView3D({ config, primaryColor, fill = false }: { con
         new THREE.MeshStandardMaterial({ color: "#bae6fd", transparent: true, opacity: 0.6 }),
       );
       water.rotation.x = -Math.PI / 2;
-      water.position.set(lengthFt / 2, 0, widthFt / 2);
+      water.position.set(framing.target.x, 0, framing.target.z);
       scene.add(water);
 
       // Lightweight pointer-drag orbit (no extra deps).
@@ -116,8 +116,8 @@ export default function DockView3D({ config, primaryColor, fill = false }: { con
       let dragging = false;
       let lastX = 0;
       let lastY = 0;
-      const radius = widthFt * 1.6 + span;
-      const center = new THREE.Vector3(lengthFt / 2, 0, widthFt / 2);
+      const radius = framing.radius;
+      const center = new THREE.Vector3(framing.target.x, framing.target.y, framing.target.z);
       const applyCam = () => {
         camera.position.set(
           center.x + radius * Math.sin(phi) * Math.cos(theta),

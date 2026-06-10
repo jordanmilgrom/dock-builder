@@ -2,9 +2,11 @@
 
 import type { DockPiece, PieceConstruction, Rotation } from "@/engine";
 import {
+  clampDim,
   clampPos,
   cycleRotation,
   dimFields,
+  MIN_DIM_FT,
   normalizeRotation,
   ROTATIONS,
   stepDim,
@@ -50,6 +52,11 @@ export default function PieceProperties({
             display={`${b.value} ft`}
             onStep={(d) => onUpdate({ [b.key]: stepDim(b.value, d) } as Partial<DockPiece>)}
           />
+        </Row>
+        {/* Typed entry commits on blur (Tab), snapped to 0.5 ft — steppers aren't the only way. */}
+        <Row>
+          <DebouncedNum label={`${a.label} exact`} value={a.value} step={0.5} min={MIN_DIM_FT} onCommit={(n) => onUpdate({ [a.key]: clampDim(n) } as Partial<DockPiece>)} />
+          <DebouncedNum label={`${b.label} exact`} value={b.value} step={0.5} min={MIN_DIM_FT} onCommit={(n) => onUpdate({ [b.key]: clampDim(n) } as Partial<DockPiece>)} />
         </Row>
       </Panel>
 

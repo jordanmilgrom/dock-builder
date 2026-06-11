@@ -101,7 +101,7 @@ describe("validationEngine — joist rules (§3.2)", () => {
     c.overall.lengthFt = 40; // » 10 ft span, no declared sections
     const result = validationEngine(c);
     expect(codes(result.errors)).not.toContain("joist_span_exceeded");
-    expect(result.autoFixes.join(" ")).toMatch(/pile bents/i);
+    expect(result.autoFixes.join(" ")).toMatch(/bents/i);
   });
 
   it("errors when the pile bay exceeds the joist span (Phase 6 bay model)", () => {
@@ -112,11 +112,14 @@ describe("validationEngine — joist rules (§3.2)", () => {
     expect(codes(result.errors)).toContain("joist_span_exceeded");
   });
 
-  it("errors when a pile-dock run cantilevers past the bay grid (Phase 6)", () => {
+  it("Phase 8: even-distribute removes cantilever — no error, just a short-bay advisory", () => {
+    // 17 ft at an 8 ft max gap → 3 equal bays of ~5.67 ft (< 75% of 8 = 6 ft):
+    // no cantilever error, an advisory about visual symmetry instead.
     const c = clone(compliantFixedConfig);
     c.pieces = [{ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 17, widthFt: 8 }];
     const result = validationEngine(c);
-    expect(codes(result.errors)).toContain("pile_cantilever");
+    expect(codes(result.errors)).not.toContain("pile_cantilever");
+    expect(codes(result.warnings)).toContain("pile_lastbay_short");
   });
 });
 

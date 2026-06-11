@@ -8,7 +8,7 @@ import "server-only";
  * Idempotent: safe to run repeatedly from the Prisma seed script.
  */
 
-import { generateStartingDesign } from "@/engine";
+import { generateStartingDesign, migrateConfigToPhase8, type DockConfig } from "@/engine";
 import { prisma } from "./db.js";
 import { entitlementsForTier, leadCapForTier } from "./entitlements.js";
 import { signUpBuilder } from "./onboarding.js";
@@ -20,6 +20,7 @@ export const ACME_ADMIN_EMAIL = process.env.ACME_ADMIN_EMAIL ?? "owner@acme-dock
 export const PLATFORM_ADMIN_EMAIL = process.env.PLATFORM_ADMIN_EMAIL ?? "admin@dockconfigurator.test";
 
 const STARTER_TEMPLATE_NAME = "Starter floating dock";
+const HYBRID_TEMPLATE_NAME = "Acme hybrid dock";
 export const SEEDED_WEBHOOK_URL = "https://example.test/dock-events";
 
 export async function seedAcme(): Promise<string> {
@@ -70,7 +71,28 @@ export async function seedAcme(): Promise<string> {
       },
       { tenantId: ACME_TENANT_ID, dockType: "floating" },
     );
-    await scope.createTemplate({ name: STARTER_TEMPLATE_NAME, config, createdBy: "seed" });
+    // Phase 8: stamp the single starter piece with construction = "floating".
+    await scope.createTemplate({ name: STARTER_TEMPLATE_NAME, config: migrateConfigToPhase8(config), createdBy: "seed" });
+  }
+
+  // Phase 8: a hybrid template (floating + pile rectangle joined by a triangle
+  // connector) so the per-piece-construction path has a ready example.
+  const hasHybrid = (await scope.listTemplates()).some((t) => t.name === HYBRID_TEMPLATE_NAME);
+  if (!hasHybrid) {
+    const base = generateStartingDesign(
+      { depthAtEndLowWaterFt: 5, seasonalFluctuationFt: 1.5, bottom: "sand", waveExposure: "inland_lake", seasonalIce: true, shoreHeightAboveWaterFt: 3 },
+      { tenantId: ACME_TENANT_ID, dockType: "floating" },
+    );
+    const hybrid: DockConfig = {
+      ...base,
+      overall: { ...base.overall, lengthFt: 40, widthFt: 8, maxGapFt: 8 },
+      pieces: [
+        { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 20, widthFt: 8, construction: "floating" },
+        { pieceKind: "right_triangle", posX: 20, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 8, construction: "pile" },
+        { pieceKind: "rectangle", posX: 24, posY: 0, rotationDeg: 0, lengthFt: 16, widthFt: 8, construction: "pile" },
+      ],
+    };
+    await scope.createTemplate({ name: HYBRID_TEMPLATE_NAME, config: hybrid, createdBy: "seed" });
   }
 
   // Phase 5: seed one webhook endpoint so the jobs flow has somewhere to fire

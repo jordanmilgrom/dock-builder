@@ -104,6 +104,16 @@ export type PieceKind = "rectangle" | "right_triangle";
 export type Rotation = 0 | 90 | 180 | 270;
 
 /**
+ * Phase 8: per-piece construction. Real hybrid docks combine floating, pile, and
+ * roll-in (wheel) sections in one installation, so each piece carries its own
+ * construction — the per-piece value is the source of truth for layout, pricing,
+ * and validation. `DockConfig.dockType` is retained as the default for new pieces.
+ * The enum is forward-compatible: `pipe` (shallow-water lightweight legs) is
+ * deferred to a future phase and will slot in without a migration.
+ */
+export type PieceConstruction = "floating" | "pile" | "wheel";
+
+/**
  * One drawn piece of a dock. Origin (posX, posY) in feet, rotated in 90° steps.
  * A rectangle uses lengthFt × widthFt; a right triangle uses legAFt (along the
  * rotation-aligned x axis) and legBFt (along y) with the hypotenuse implied.
@@ -119,6 +129,11 @@ export interface DockPiece {
   /** Right-triangle legs. */
   legAFt?: number;
   legBFt?: number;
+  /**
+   * Phase 8: this piece's construction. Optional for back-compat — when absent,
+   * the engine defaults it to the design's `dockType` (pipe→pile) on read.
+   */
+  construction?: PieceConstruction;
   /** Optional manually-placed floats (world-independent, piece-local feet). */
   floats?: FloatPlacement[];
 }
@@ -169,7 +184,13 @@ export interface OverallConfig {
   joistSize?: JoistSize;
   /** Joist spacing on-center, inches. Defaults derived per material/orientation. */
   joistSpacingIn?: number;
-  /** Phase 6: pile bay grid (ft) deck dimensions must snap to. Default 8, range 4–10. */
+  /**
+   * Phase 8: maximum support gap (ft) for even-distribute layout of both floats
+   * and piles. Default 8, range 4–10. Renamed from the Phase 6 `bayFt`, which is
+   * still read as a fallback for un-migrated configs.
+   */
+  maxGapFt?: number;
+  /** @deprecated Phase 6 name for {@link maxGapFt}; read only as a back-compat fallback. */
   bayFt?: number;
 }
 
@@ -254,6 +275,7 @@ export type PricingUnit =
   | "per_ft2"
   | "per_float"
   | "per_pile"
+  | "per_wheel"
   | "per_linear_ft"
   | "each"
   | "flat";

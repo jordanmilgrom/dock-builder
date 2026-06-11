@@ -9,20 +9,23 @@
  */
 
 import {
-  bayFtFor,
   floatFootprintFor,
   floatLayoutForPiece,
   freeboard,
   insetFloatToFootprint,
+  maxGapFtFor,
   pieceWorldPolygon,
   pileLayoutForPiece,
   resolvePieces,
+  wheelLayoutForPiece,
   worldBounds,
   type DockConfig,
 } from "@/engine";
+import type { NormalizedPiece } from "@/engine";
 
 export interface SceneBox {
-  kind: "deck" | "float" | "pile" | "gangway";
+  /** Phase 8: `wheel` is a cylinder (roll-in tire); `bracket` is its arm slab. */
+  kind: "deck" | "float" | "pile" | "gangway" | "wheel" | "bracket";
   /** Center position in feet (x along length, y vertical, z across width). */
   x: number;
   y: number;
@@ -37,6 +40,8 @@ export interface SceneBox {
   /** For triangle decks — the 3 WORLD corner points (feet, top-down) to extrude.
    *  Identical to the 2D canvas via the shared `triangleVertices` convention. */
   tri?: { vertices: [number, number][]; legAFt: number; legBFt: number; posX: number; posY: number; rotationDeg: number };
+  /** Phase 8 wheel cylinder: radius (ft); axis runs along z (rolls down-length). */
+  wheel?: { radiusFt: number };
 }
 
 /**
@@ -65,6 +70,8 @@ export function triangleVertices(
 export interface SceneSpec {
   boxes: SceneBox[];
   bounds: { lengthFt: number; widthFt: number };
+  /** Absolute world bounding box (feet, top-down x/z) for camera framing. */
+  box: { minX: number; minZ: number; maxX: number; maxZ: number };
 }
 
 export interface SceneColors {
@@ -72,12 +79,28 @@ export interface SceneColors {
   float: string;
   pile: string;
   gangway: string;
+  wheel: string;
 }
 
-const DEFAULT_COLORS: SceneColors = { deck: "#b08968", float: "#0e7490", pile: "#475569", gangway: "#94a3b8" };
+const DEFAULT_COLORS: SceneColors = { deck: "#b08968", float: "#0e7490", pile: "#475569", gangway: "#94a3b8", wheel: "#3f3f46" };
 
 const DECK_THICK_FT = 0.5;
 const FLOAT_H_FT = 16 / 12; // a 16-inch-tall poly float
+/** Phase 8: roll-in decks ride at a fixed 14" freeboard (wheel radius + clearance). */
+const WHEEL_FREEBOARD_FT = 14 / 12;
+const WHEEL_THICK_FT = 0.4; // tire width
+
+/** Deck-bottom height (ft above the y=0 waterline) for a single piece. */
+function deckBottomYFor(piece: NormalizedPiece, config: DockConfig): number {
+  if (piece.construction === "floating") {
+    const fbFt = (freeboard(config).freeboardIn ?? FLOAT_H_FT * 0.3 * 12) / 12;
+    return Math.min(Math.max(fbFt, FLOAT_H_FT * 0.15), FLOAT_H_FT * 0.5);
+  }
+  if (piece.construction === "wheel") {
+    return Math.max(WHEEL_FREEBOARD_FT, 2 * (piece.widthFt / 8));
+  }
+  return Math.max(1, config.site.shoreHeightAboveWaterFt); // pile / fixed
+}
 
 /**
  * Build the box list for a design (Phase 6 + 3D polish). Water sits at y = 0.
@@ -91,23 +114,13 @@ const FLOAT_H_FT = 16 / 12; // a 16-inch-tall poly float
 export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColors>): SceneSpec {
   const colors = { ...DEFAULT_COLORS, ...colorsIn };
   const pieces = resolvePieces(config);
-  const bay = bayFtFor(config);
+  const bay = maxGapFtFor(config);
   const boxes: SceneBox[] = [];
-  const floating = config.dockType === "floating";
-
-  // Deck bottom (= top of floats). For a floating dock the deck rides at the
-  // float's freeboard above water; for a fixed dock it sits at the shore height.
-  let deckBottomY: number;
-  if (floating) {
-    const fbFt = (freeboard(config).freeboardIn ?? FLOAT_H_FT * 0.3 * 12) / 12;
-    // Keep the float visibly mostly-submerged regardless of over-flotation.
-    deckBottomY = Math.min(Math.max(fbFt, FLOAT_H_FT * 0.15), FLOAT_H_FT * 0.5);
-  } else {
-    deckBottomY = Math.max(1, config.site.shoreHeightAboveWaterFt);
-  }
-  const deckCenterY = deckBottomY + DECK_THICK_FT / 2;
 
   for (const piece of pieces) {
+    // Phase 8: deck height + support hardware are per-piece construction.
+    const deckBottomY = deckBottomYFor(piece, config);
+    const deckCenterY = deckBottomY + DECK_THICK_FT / 2;
     const poly = pieceWorldPolygon(piece);
     const xs = poly.map((p) => p.xFt);
     const zs = poly.map((p) => p.yFt);
@@ -132,9 +145,9 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
     }
     boxes.push(deckBox);
 
-    if (floating) {
+    if (piece.construction === "floating") {
       const { extX: floatW, extZ: floatD } = floatFootprintFor(piece);
-      for (const f of floatLayoutForPiece(piece)) {
+      for (const f of floatLayoutForPiece(piece, bay)) {
         // Float top == deck bottom (hangs DOWN into the water); the shared engine
         // helper insets edge/corner floats so the box stays under the footprint.
         const inset = insetFloatToFootprint(f, piece);
@@ -149,7 +162,26 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
           color: colors.float,
         });
       }
-    } else if (config.dockType !== "suspension") {
+    } else if (piece.construction === "wheel") {
+      // Two wheels (cylinders rolling down-length) + a bracket arm each, up to deck.
+      const radius = Math.max(0.3, piece.widthFt / 8);
+      for (const w of wheelLayoutForPiece(piece)) {
+        boxes.push({
+          kind: "wheel", x: w.xFt, y: radius, z: w.yFt,
+          w: 2 * radius, h: 2 * radius, d: WHEEL_THICK_FT, color: colors.wheel,
+          wheel: { radiusFt: radius },
+        });
+        const armBottom = radius;
+        const armTop = deckBottomY;
+        if (armTop > armBottom) {
+          boxes.push({
+            kind: "bracket", x: w.xFt, y: (armBottom + armTop) / 2, z: w.yFt,
+            w: 0.25, h: armTop - armBottom, d: 0.25, color: colors.wheel,
+          });
+        }
+      }
+    } else {
+      // pile / fixed
       for (const p of pileLayoutForPiece(piece, bay)) {
         const pileH = deckBottomY + 3; // from ~3 ft below water up to the deck
         boxes.push({ kind: "pile", x: p.xFt, y: deckBottomY - pileH / 2, z: p.yFt, w: 0.5, h: pileH, d: 0.5, color: colors.pile });
@@ -158,7 +190,12 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
   }
 
   const b = worldBounds(pieces);
-  return { boxes, bounds: { lengthFt: Math.max(1, b.maxX - b.minX), widthFt: Math.max(1, b.maxY - b.minY) } };
+  return {
+    boxes,
+    bounds: { lengthFt: Math.max(1, b.maxX - b.minX), widthFt: Math.max(1, b.maxY - b.minY) },
+    // Absolute world box (feet) so the viewer can frame OFF-ORIGIN designs.
+    box: { minX: b.minX, minZ: b.minY, maxX: b.maxX, maxZ: b.maxY },
+  };
 }
 
 /** Whether Three.js (r128 from CDN) has attached to the global. SSR-safe. */

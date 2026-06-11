@@ -13,6 +13,7 @@ import {
 } from "@/engine";
 import { parseViewParam, VIEW_LABELS, VIEW_MODES, viewSearchString, type ViewMode } from "@/lib/viewSwitcher";
 import CanvasMode, { unionBbox } from "./CanvasMode";
+import { placeToRight } from "@/lib/newPiecePlacement";
 import SchematicMode from "./SchematicMode";
 import ThreeDMode from "./ThreeDMode";
 import PropertiesPanel from "./PropertiesPanel";
@@ -101,13 +102,10 @@ export default function ConfiguratorPane({
 
   // ---- palette / piece ops ----
   function addPiece(p: DockPiece) {
-    const b = unionBbox(pieces);
-    const cx = pieces.length ? (b.minX + b.maxX) / 2 : 12;
-    const cy = pieces.length ? (b.minY + b.maxY) / 2 : 6;
-    const w = p.pieceKind === "right_triangle" ? (p.legAFt ?? 0) : (p.lengthFt ?? 0);
-    const h = p.pieceKind === "right_triangle" ? (p.legBFt ?? 0) : (p.widthFt ?? 0);
-    const placed = { ...p, posX: Math.round(cx - w / 2), posY: Math.round(cy - h / 2) };
-    setPieces([...pieces, placed]);
+    // Place to the right of the existing design (1 ft gap) so new pieces never
+    // land on top of existing ones; the canvas auto-fits to bring it into view.
+    const { posX, posY } = pieces.length ? placeToRight(unionBbox(pieces)) : { posX: 0, posY: 0 };
+    setPieces([...pieces, { ...p, posX, posY }]);
     setSelected(pieces.length);
   }
   function updatePiece(patch: Partial<DockPiece>) {

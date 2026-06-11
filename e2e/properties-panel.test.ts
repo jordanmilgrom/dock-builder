@@ -66,7 +66,9 @@ describe("properties panel flow", () => {
     expect(panel).toContain("PieceProperties");
     expect(panel).toContain("DesignProperties");
     const piece = readFileSync(resolve(ROOT, "src/components/PieceProperties.tsx"), "utf8");
-    expect(piece).toContain("Phase 8: per-piece floating / pile / wheel");
+    // Phase 8: the construction note became a real Floating/Pile/Wheel dropdown.
+    expect(piece).toContain("construction");
+    expect(piece).toContain("Wheel (roll-in)");
     expect(piece).toContain("Delete piece");
   });
 });

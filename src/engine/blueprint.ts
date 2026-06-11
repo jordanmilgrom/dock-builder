@@ -18,13 +18,14 @@ import {
   gangwaySlopePct,
 } from "./geometry.js";
 import {
-  bayFtFor,
   floatFootprintFor,
   floatLayoutForPiece,
   insetFloatToFootprint,
+  maxGapFtFor,
   pieceWorldPolygon,
   pileLayoutForPiece,
   resolvePieces,
+  wheelLayoutForPiece,
   worldBounds,
   type NormalizedPiece,
 } from "./pieces.js";
@@ -245,20 +246,24 @@ export function planView(config: DockConfig): Drawing {
     shapes.push(text({ x: cx, y: cy }, sectionLabel(piece), { fill: COLOR.dim, align: "middle", fontSize: 10 }));
   }
 
-  // Floats / piles per piece (engine positions, inset so symbols stay on-deck).
-  if (config.dockType === "floating") {
-    for (const piece of pieces) {
+  // Supports per piece by construction (Phase 8): floats, piles, or roll-in
+  // wheels — engine positions, inset so symbols stay on-deck.
+  const bay = maxGapFtFor(config);
+  for (const piece of pieces) {
+    if (piece.construction === "floating") {
       const { extX, extZ } = floatFootprintFor(piece);
       const fw = f.len(extX);
       const fh = f.len(extZ);
-      for (const pos of floatLayoutForPiece(piece)) {
+      for (const pos of floatLayoutForPiece(piece, bay)) {
         const inset = insetFloatToFootprint(pos, piece);
         shapes.push({ kind: "rect", x: wx(inset.xFt) - fw / 2, y: wy(inset.yFt) - fh / 2, w: fw, h: fh, style: { fill: COLOR.float, stroke: COLOR.floatStroke, opacity: 0.85 } });
       }
-    }
-  } else if (config.dockType !== "suspension") {
-    const bay = bayFtFor(config);
-    for (const piece of pieces) {
+    } else if (piece.construction === "wheel") {
+      const rFt = Math.max(0.3, piece.widthFt / 8);
+      for (const pos of wheelLayoutForPiece(piece)) {
+        shapes.push({ kind: "circle", c: { x: wx(pos.xFt), y: wy(pos.yFt) }, r: Math.max(3, f.len(rFt)), style: { fill: COLOR.pile, stroke: COLOR.ink } });
+      }
+    } else {
       for (const pos of pileLayoutForPiece(piece, bay)) {
         shapes.push({ kind: "circle", c: { x: wx(pos.xFt), y: wy(pos.yFt) }, r: 4, style: { fill: COLOR.pile, stroke: COLOR.pileStroke } });
       }
@@ -395,7 +400,7 @@ function floatXs(config: DockConfig, minX: number): number[] {
 
 /** Distinct pile X positions (ft, normalized to 0) for the side elevation. */
 function pileXs(config: DockConfig, minX: number): number[] {
-  const bay = bayFtFor(config);
+  const bay = maxGapFtFor(config);
   const xs = resolvePieces(config).flatMap((p) => pileLayoutForPiece(p, bay).map((pp) => round1(pp.xFt - minX)));
   return [...new Set(xs)].sort((a, b) => a - b);
 }

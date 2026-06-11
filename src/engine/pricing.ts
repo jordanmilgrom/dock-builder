@@ -13,8 +13,10 @@
 import {
   deckAreaFt2,
   floatCount,
+  floatingAreaFt2,
   gangwayLengthFt,
   pilingCount,
+  wheelCount,
   connectorCount,
 } from "./geometry.js";
 import { resolvePieces } from "./pieces.js";
@@ -49,16 +51,19 @@ export function billableQuantities(config: DockConfig): BillableQuantities {
     decking_upcharge: area,
   };
 
-  if (config.dockType === "floating") {
-    q.flotation_per_float = floatCount(config);
-    q.flotation_per_ft2 = area;
+  // Phase 8: support hardware is billed by ACTUAL per-piece construction counts,
+  // not the design dockType — a hybrid dock bills floats + piles + wheels.
+  const floats = floatCount(config);
+  const piles = pilingCount(config);
+  const wheels = wheelCount(config);
+  if (floats > 0) {
+    q.flotation_per_float = floats;
+    q.flotation_per_ft2 = floatingAreaFt2(config);
     const connectors = connectorCount(pieceCount);
     if (connectors > 0) q.connector_each = connectors;
   }
-
-  if (config.dockType !== "floating" && config.dockType !== "suspension") {
-    q.piling_per_pile = pilingCount(config);
-  }
+  if (piles > 0) q.piling_per_pile = piles;
+  if (wheels > 0) q.wheel_per_wheel = wheels;
 
   if (config.gangway?.present) {
     q.gangway_per_linear_ft = gangwayLengthFt(config);
@@ -93,6 +98,7 @@ function defaultLabel(key: string): string {
     .replace(/_per_ft2$/, " (per ft²)")
     .replace(/_per_float$/, " (per float)")
     .replace(/_per_pile$/, " (per pile)")
+    .replace(/_per_wheel$/, " (per wheel)")
     .replace(/_per_linear_ft$/, " (per linear ft)")
     .replace(/_each$/, " (each)")
     .replace(/^accessory_/, "")
@@ -207,6 +213,7 @@ function isCorePricingKey(key: string): boolean {
     key === "frame_per_ft2" ||
     key === "flotation_per_float" ||
     key === "piling_per_pile" ||
+    key === "wheel_per_wheel" ||
     key === "gangway_per_linear_ft"
   );
 }

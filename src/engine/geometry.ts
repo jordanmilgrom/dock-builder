@@ -24,6 +24,7 @@ import {
 import {
   allFloatPositions,
   allPilePositions,
+  allWheelPositions,
   pieceAreaFt2,
   resolvePieces,
   type PlacementFt,
@@ -78,10 +79,24 @@ export function flotationMultiplier(config: DockConfig): number {
   );
 }
 
-/** Required buoyancy (lbs) via the §3.1 quick method: area × multiplier. */
+/** Deck area (ft²) of the FLOATING pieces only (Phase 8 per-piece construction). */
+export function floatingAreaFt2(config: DockConfig): number {
+  return round(
+    resolvePieces(config)
+      .filter((p) => p.construction === "floating")
+      .reduce((sum, p) => sum + pieceAreaFt2(p), 0),
+  );
+}
+
+/**
+ * Required buoyancy (lbs) via the §3.1 quick method: area × multiplier — summed
+ * over the FLOATING pieces only, so a hybrid dock's piles/wheels don't inflate
+ * the buoyancy requirement.
+ */
 export function requiredBuoyancyLbs(config: DockConfig): number {
-  if (config.dockType !== "floating") return 0;
-  return round(deckAreaFt2(config) * flotationMultiplier(config));
+  const area = floatingAreaFt2(config);
+  if (area <= 0) return 0;
+  return round(area * flotationMultiplier(config));
 }
 
 /** Resolve the float spec for a config, falling back to defaults (§3.1). */
@@ -116,7 +131,6 @@ function placedFloatCount(config: DockConfig): number {
  * buoyancy adequacy is still checked via freeboard/submergence.
  */
 export function floatCount(config: DockConfig): number {
-  if (config.dockType !== "floating") return 0;
   return allFloatPositions(config).length;
 }
 
@@ -239,9 +253,19 @@ export function suggestedPileLayout(config: DockConfig): PlacementFt[] {
   return allPilePositions(config);
 }
 
-/** Suggested piling count for fixed docks (corner + bay-grid piles per piece). */
+/** Suggested piling count across pile pieces (corner + even-distribute grid). */
 export function pilingCount(config: DockConfig): number {
   return allPilePositions(config).length;
+}
+
+/** Suggested wheel positions across roll-in (wheel) pieces. World feet. */
+export function suggestedWheelLayout(config: DockConfig): PlacementFt[] {
+  return allWheelPositions(config);
+}
+
+/** Wheel count across roll-in (wheel) pieces (2 per rectangle). */
+export function wheelCount(config: DockConfig): number {
+  return allWheelPositions(config).length;
 }
 
 /** Suggested cleat count from edge perimeter spacing (§3.5). */

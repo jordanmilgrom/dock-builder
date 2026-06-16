@@ -21,7 +21,8 @@ import {
   worldBounds,
   type DockConfig,
 } from "@/engine";
-import type { NormalizedPiece } from "@/engine";
+import { autoSplitConfig } from "@/engine";
+import type { NormalizedPiece, PieceConstruction } from "@/engine";
 
 export interface SceneBox {
   /** Phase 8: `wheel` is a cylinder (roll-in tire); `bracket` is its arm slab. */
@@ -90,16 +91,25 @@ const FLOAT_H_FT = 16 / 12; // a 16-inch-tall poly float
 const WHEEL_FREEBOARD_FT = 14 / 12;
 const WHEEL_THICK_FT = 0.4; // tire width
 
-/** Deck-bottom height (ft above the y=0 waterline) for a single piece. */
-function deckBottomYFor(piece: NormalizedPiece, config: DockConfig): number {
-  if (piece.construction === "floating") {
+/** Deck-bottom height (ft above the y=0 waterline) for ONE construction kind. */
+function deckYForConstruction(c: PieceConstruction, config: DockConfig): number {
+  if (c === "floating") {
+    // Engine-derived freeboard, clamped so floats stay mostly submerged.
     const fbFt = (freeboard(config).freeboardIn ?? FLOAT_H_FT * 0.3 * 12) / 12;
     return Math.min(Math.max(fbFt, FLOAT_H_FT * 0.15), FLOAT_H_FT * 0.5);
   }
-  if (piece.construction === "wheel") {
-    return Math.max(WHEEL_FREEBOARD_FT, 2 * (piece.widthFt / 8));
-  }
-  return Math.max(1, config.site.shoreHeightAboveWaterFt); // pile / fixed
+  if (c === "wheel") return WHEEL_FREEBOARD_FT; // 14 in (radius + bracket clearance)
+  return Math.max(0.5, config.site.shoreHeightAboveWaterFt - 0.5); // pile: level with shore
+}
+
+/**
+ * Deck-bottom height (ft) for a piece (Phase 9). Respects the engineering math
+ * per construction — floating rides at freeboard, pile sits level with the shore,
+ * wheel at its fixed clearance — and AVERAGES across a multi-construction set.
+ */
+export function deckBottomYFor(piece: NormalizedPiece, config: DockConfig): number {
+  const ys = piece.constructions.map((c) => deckYForConstruction(c, config));
+  return ys.reduce((s, y) => s + y, 0) / ys.length;
 }
 
 /**
@@ -112,6 +122,8 @@ function deckBottomYFor(piece: NormalizedPiece, config: DockConfig): number {
  * Floats/piles are placed at the engine-supplied per-piece layout positions.
  */
 export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColors>): SceneSpec {
+  // Phase 9: render the assembly auto-split preview (too-long sections split).
+  config = autoSplitConfig(config);
   const colors = { ...DEFAULT_COLORS, ...colorsIn };
   const pieces = resolvePieces(config);
   const bay = maxGapFtFor(config);
@@ -145,7 +157,7 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
     }
     boxes.push(deckBox);
 
-    if (piece.construction === "floating") {
+    if (piece.constructions.includes("floating")) {
       const { extX: floatW, extZ: floatD } = floatFootprintFor(piece);
       for (const f of floatLayoutForPiece(piece, bay)) {
         // Float top == deck bottom (hangs DOWN into the water); the shared engine
@@ -162,7 +174,8 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
           color: colors.float,
         });
       }
-    } else if (piece.construction === "wheel") {
+    }
+    if (piece.constructions.includes("wheel")) {
       // Two wheels (cylinders rolling down-length) + a bracket arm each, up to deck.
       const radius = Math.max(0.3, piece.widthFt / 8);
       for (const w of wheelLayoutForPiece(piece)) {
@@ -180,8 +193,8 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
           });
         }
       }
-    } else {
-      // pile / fixed
+    }
+    if (piece.constructions.includes("pile")) {
       for (const p of pileLayoutForPiece(piece, bay)) {
         const pileH = deckBottomY + 3; // from ~3 ft below water up to the deck
         boxes.push({ kind: "pile", x: p.xFt, y: deckBottomY - pileH / 2, z: p.yFt, w: 0.5, h: pileH, d: 0.5, color: colors.pile });

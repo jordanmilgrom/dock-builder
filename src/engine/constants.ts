@@ -172,6 +172,18 @@ export const MAX_SECTION = {
   },
 } as const;
 
+/**
+ * Phase 9: maximum single-section length (ft) by frame material for assembly
+ * auto-split (§3.3). A run longer than this is split into equal sections joined
+ * by connectors. (Dock Builders Supply / NyDock shipping + handling limits.)
+ */
+export const MAX_SECTION_FT = {
+  aluminum: 32,
+  galvanized_steel: 40,
+  composite: 32,
+  pt_pine: 24,
+} as const;
+
 /** Minimum widths (§3.3). */
 export const MIN_WIDTH_FT = {
   twoWayTraffic: 4,

@@ -20,6 +20,7 @@ import {
   connectorCount,
 } from "./geometry.js";
 import { resolvePieces } from "./pieces.js";
+import { autoSplitConnectorCount } from "./autoSplit.js";
 import type {
   AccessoryConfig,
   DockConfig,
@@ -59,7 +60,8 @@ export function billableQuantities(config: DockConfig): BillableQuantities {
   if (floats > 0) {
     q.flotation_per_float = floats;
     q.flotation_per_ft2 = floatingAreaFt2(config);
-    const connectors = connectorCount(pieceCount);
+    // Phase 9: connectors include any auto-split (too-long section) joints.
+    const connectors = connectorCount(pieceCount) + autoSplitConnectorCount(config);
     if (connectors > 0) q.connector_each = connectors;
   }
   if (piles > 0) q.piling_per_pile = piles;

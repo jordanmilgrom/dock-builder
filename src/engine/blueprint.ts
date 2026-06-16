@@ -30,6 +30,7 @@ import {
   type NormalizedPiece,
 } from "./pieces.js";
 import { DEFAULT_FLOAT } from "./constants.js";
+import { autoSplitConfig } from "./autoSplit.js";
 import type { DockConfig } from "./types.js";
 
 /** World bounding dimensions (ft) across all resolved pieces. */
@@ -198,6 +199,8 @@ function resolveFloatHeightIn(config: DockConfig): number {
 // ---------------------------------------------------------------------------
 
 export function planView(config: DockConfig): Drawing {
+  // Phase 9: render the assembly auto-split preview (too-long sections split).
+  config = autoSplitConfig(config);
   const shapes: Shape[] = [];
   const pieces = resolvePieces(config);
   const { lengthFt, widthFt, minX, minY } = boundsDims(config);
@@ -246,11 +249,12 @@ export function planView(config: DockConfig): Drawing {
     shapes.push(text({ x: cx, y: cy }, sectionLabel(piece), { fill: COLOR.dim, align: "middle", fontSize: 10 }));
   }
 
-  // Supports per piece by construction (Phase 8): floats, piles, or roll-in
-  // wheels — engine positions, inset so symbols stay on-deck.
+  // Supports per piece by construction SET (Phase 9): a piece can be floating
+  // AND pile, so every membership is drawn independently (not else-if). Pile
+  // pieces used to render as bare rectangles — this is the fix.
   const bay = maxGapFtFor(config);
   for (const piece of pieces) {
-    if (piece.construction === "floating") {
+    if (piece.constructions.includes("floating")) {
       const { extX, extZ } = floatFootprintFor(piece);
       const fw = f.len(extX);
       const fh = f.len(extZ);
@@ -258,14 +262,16 @@ export function planView(config: DockConfig): Drawing {
         const inset = insetFloatToFootprint(pos, piece);
         shapes.push({ kind: "rect", x: wx(inset.xFt) - fw / 2, y: wy(inset.yFt) - fh / 2, w: fw, h: fh, style: { fill: COLOR.float, stroke: COLOR.floatStroke, opacity: 0.85 } });
       }
-    } else if (piece.construction === "wheel") {
+    }
+    if (piece.constructions.includes("pile")) {
+      for (const pos of pileLayoutForPiece(piece, bay)) {
+        shapes.push({ kind: "circle", c: { x: wx(pos.xFt), y: wy(pos.yFt) }, r: 4, style: { fill: COLOR.pile, stroke: COLOR.pileStroke } });
+      }
+    }
+    if (piece.constructions.includes("wheel")) {
       const rFt = Math.max(0.3, piece.widthFt / 8);
       for (const pos of wheelLayoutForPiece(piece)) {
         shapes.push({ kind: "circle", c: { x: wx(pos.xFt), y: wy(pos.yFt) }, r: Math.max(3, f.len(rFt)), style: { fill: COLOR.pile, stroke: COLOR.ink } });
-      }
-    } else {
-      for (const pos of pileLayoutForPiece(piece, bay)) {
-        shapes.push({ kind: "circle", c: { x: wx(pos.xFt), y: wy(pos.yFt) }, r: 4, style: { fill: COLOR.pile, stroke: COLOR.pileStroke } });
       }
     }
   }
@@ -311,6 +317,8 @@ function northArrow(cx: number, cy: number): Shape[] {
 // ---------------------------------------------------------------------------
 
 export function sideElevation(config: DockConfig): Drawing {
+  // Phase 9: render the assembly auto-split preview (too-long sections split).
+  config = autoSplitConfig(config);
   const shapes: Shape[] = [];
   const { lengthFt, minX } = boundsDims(config);
   const gangL = gangwayLengthFt(config);
@@ -340,7 +348,15 @@ export function sideElevation(config: DockConfig): Drawing {
   const deckX1 = X(gangL + 2 + lengthFt);
   const fw = f.len(DEFAULT_FLOAT.lengthIn / 12);
 
-  if (config.dockType === "floating") {
+  // Phase 9: render every construction present (a piece can be floating AND pile,
+  // and a hybrid dock mixes them) — not a single dockType branch. This is the fix
+  // for pile pieces rendering as bare rectangles in the schematic.
+  const elevPieces = resolvePieces(config);
+  const hasFloating = elevPieces.some((p) => p.constructions.includes("floating"));
+  const hasPile = elevPieces.some((p) => p.constructions.includes("pile"));
+  const hasWheel = elevPieces.some((p) => p.constructions.includes("wheel"));
+
+  if (hasFloating) {
     const floatHFt = resolveFloatHeightIn(config) / 12;
     const fbFt = freeboardZ(config, floatHFt); // float freeboard above water
     const deckBottomZ = fbFt; // deck rests on the float tops
@@ -350,19 +366,36 @@ export function sideElevation(config: DockConfig): Drawing {
       const px = X(gangL + 2 + xrel);
       shapes.push({ kind: "rect", x: px - fw / 2, y: Y(deckBottomZ), w: fw, h: Y(deckBottomZ - floatHFt) - Y(deckBottomZ), style: { fill: COLOR.float, stroke: COLOR.floatStroke } });
     }
-    // Deck slab.
     shapes.push({ kind: "rect", x: deckX0, y: Y(deckTopZ), w: deckX1 - deckX0, h: Y(deckBottomZ) - Y(deckTopZ), style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
     shapes.push(...vDim(deckX1 + 16, Y(deckBottomZ), waterY, `freeboard ${r1(fbFt * 12)} in`));
     shapes.push(...vDim(deckX1 + 40, Y(deckTopZ), Y(deckBottomZ), `deck ${r1(DECK_THICK_FT * 12)} in`));
-  } else {
+  }
+  if (hasPile) {
     const deckTopZ = Math.max(rise, 1);
+    // Vertical posts from the lake-bed up to the deck at every pile X.
     for (const xrel of pileXs(config, minX)) {
       const px = X(gangL + 2 + xrel);
       shapes.push({ kind: "line", a: { x: px, y: Y(-depth) }, b: { x: px, y: Y(deckTopZ) }, style: { stroke: COLOR.pileStroke, strokeWidth: 3 } });
     }
-    shapes.push({ kind: "rect", x: deckX0, y: Y(deckTopZ + DECK_THICK_FT), w: deckX1 - deckX0, h: Y(deckTopZ) - Y(deckTopZ + DECK_THICK_FT), style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
-    shapes.push(...vDim(deckX1 + 16, Y(deckTopZ), waterY, `deck height ${ft(deckTopZ)}`));
+    if (!hasFloating) {
+      shapes.push({ kind: "rect", x: deckX0, y: Y(deckTopZ + DECK_THICK_FT), w: deckX1 - deckX0, h: Y(deckTopZ) - Y(deckTopZ + DECK_THICK_FT), style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
+      shapes.push(...vDim(deckX1 + 16, Y(deckTopZ), waterY, `deck height ${ft(deckTopZ)}`));
+    }
     shapes.push(...vDim(deckX0 - 16, Y(0), Y(-depth), `embedment ${ft(depth)}`));
+  }
+  if (hasWheel) {
+    // Roll-in wheels as circles at the deck-bottom level + a bracket diagonal.
+    const wheelZ = 14 / 12; // 14 in clearance
+    const rPx = f.len(Math.max(0.4, boundsDims(config).widthFt / 8));
+    const wxs = [...new Set(elevPieces.flatMap((p) => p.constructions.includes("wheel") ? wheelLayoutForPiece(p).map((wp) => round1(wp.xFt - minX)) : []))];
+    for (const xrel of wxs) {
+      const px = X(gangL + 2 + xrel);
+      shapes.push({ kind: "circle", c: { x: px, y: Y(wheelZ * 0.5) }, r: rPx, style: { fill: COLOR.pile, stroke: COLOR.ink } });
+      shapes.push({ kind: "line", a: { x: px, y: Y(wheelZ * 0.5) }, b: { x: px, y: Y(wheelZ) }, style: { stroke: COLOR.pileStroke, strokeWidth: 2 } });
+    }
+    if (!hasFloating && !hasPile) {
+      shapes.push({ kind: "rect", x: deckX0, y: Y(wheelZ + DECK_THICK_FT), w: deckX1 - deckX0, h: Y(wheelZ) - Y(wheelZ + DECK_THICK_FT), style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
+    }
   }
 
   // Gangway from shore top down to the deck.
@@ -410,6 +443,8 @@ function pileXs(config: DockConfig, minX: number): number[] {
 // ---------------------------------------------------------------------------
 
 export function endElevation(config: DockConfig): Drawing {
+  // Phase 9: render the assembly auto-split preview (too-long sections split).
+  config = autoSplitConfig(config);
   const shapes: Shape[] = [];
   const { widthFt } = boundsDims(config);
   const depth = config.site.depthAtEndLowWaterFt;
@@ -432,26 +467,45 @@ export function endElevation(config: DockConfig): Drawing {
   const x0 = X(0);
   const x1 = X(widthFt);
 
-  if (config.dockType === "floating") {
+  // Phase 9: render per construction present (cross-section through the width).
+  const endPieces = resolvePieces(config);
+  const hasFloating = endPieces.some((p) => p.constructions.includes("floating"));
+  const hasPile = endPieces.some((p) => p.constructions.includes("pile"));
+  const hasWheel = endPieces.some((p) => p.constructions.includes("wheel"));
+
+  if (hasFloating) {
     const floatHFt = resolveFloatHeightIn(config) / 12;
     const fbFt = freeboardZ(config, floatHFt);
     const deckBottomZ = fbFt;
     const fwAcross = f.len(DEFAULT_FLOAT.widthIn / 12);
-    // Float rows across the width (matches the §3.1 two-row layout).
     const rows = widthFt > 6 ? [Math.min(widthFt - 1, 1), Math.max(1, widthFt - 1)] : [widthFt / 2];
     for (const yc of rows) {
       shapes.push({ kind: "rect", x: X(yc) - fwAcross / 2, y: Y(deckBottomZ), w: fwAcross, h: Y(deckBottomZ - floatHFt) - Y(deckBottomZ), style: { fill: COLOR.float, stroke: COLOR.floatStroke } });
     }
     shapes.push({ kind: "rect", x: x0, y: Y(deckBottomZ + DECK_THICK_FT), w: x1 - x0, h: Y(deckBottomZ) - Y(deckBottomZ + DECK_THICK_FT), style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
     shapes.push(...vDim(x1 + 16, Y(deckBottomZ), waterY, `freeboard ${r1(fbFt * 12)} in`));
-  } else {
+  }
+  if (hasPile) {
     const deckTopZ = Math.max(rise, 1);
     const piles = widthFt > 6 ? [0, widthFt / 2, widthFt] : [0, widthFt];
     for (const yc of piles) {
       shapes.push({ kind: "line", a: { x: X(yc), y: Y(-depth) }, b: { x: X(yc), y: Y(deckTopZ) }, style: { stroke: COLOR.pileStroke, strokeWidth: 3 } });
     }
-    shapes.push({ kind: "rect", x: x0, y: Y(deckTopZ + DECK_THICK_FT), w: x1 - x0, h: Y(deckTopZ) - Y(deckTopZ + DECK_THICK_FT), style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
-    shapes.push(...vDim(x1 + 16, Y(deckTopZ), waterY, `deck height ${ft(deckTopZ)}`));
+    if (!hasFloating) {
+      shapes.push({ kind: "rect", x: x0, y: Y(deckTopZ + DECK_THICK_FT), w: x1 - x0, h: Y(deckTopZ) - Y(deckTopZ + DECK_THICK_FT), style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
+      shapes.push(...vDim(x1 + 16, Y(deckTopZ), waterY, `deck height ${ft(deckTopZ)}`));
+    }
+  }
+  if (hasWheel) {
+    // Two wheels side-by-side across the width.
+    const wheelZ = 14 / 12;
+    const rPx = f.len(Math.max(0.4, widthFt / 8));
+    for (const yc of [Math.max(0.5, widthFt * 0.2), widthFt * 0.8]) {
+      shapes.push({ kind: "circle", c: { x: X(yc), y: Y(wheelZ * 0.5) }, r: rPx, style: { fill: COLOR.pile, stroke: COLOR.ink } });
+    }
+    if (!hasFloating && !hasPile) {
+      shapes.push({ kind: "rect", x: x0, y: Y(wheelZ + DECK_THICK_FT), w: x1 - x0, h: Y(wheelZ) - Y(wheelZ + DECK_THICK_FT), style: { fill: COLOR.deck, stroke: COLOR.ink, strokeWidth: 1.5 } });
+    }
   }
 
   shapes.push(...hDim(x0, x1, Y(-depth) + 20, `overall width ${ft(widthFt)}`));
@@ -463,6 +517,8 @@ export function endElevation(config: DockConfig): Drawing {
 // ---------------------------------------------------------------------------
 
 export function isometricView(config: DockConfig): Drawing {
+  // Phase 9: render the assembly auto-split preview (too-long sections split).
+  config = autoSplitConfig(config);
   const shapes: Shape[] = [];
   const pieces = resolvePieces(config);
   const { lengthFt, widthFt } = boundsDims(config);

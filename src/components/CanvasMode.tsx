@@ -306,7 +306,8 @@ export default function CanvasMode({
           const b = pieceBbox(p);
           const c = wts((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2);
           const isSel = i === selectedIndex;
-          const isWheel = p.construction === "wheel" && p.pieceKind === "rectangle";
+          const cons = p.constructions ?? (p.construction ? [p.construction] : []);
+          const isWheel = cons.includes("wheel") && p.pieceKind === "rectangle";
           return (
             <g key={i} onPointerDown={(e) => onPiecePointerDown(e, i)} style={{ cursor: "move" }}>
               <polygon

@@ -25,6 +25,13 @@ const CONSTRUCTIONS: { value: PieceConstruction; label: string; tip: string }[] 
   { value: "pile", label: "Pile", tip: "Pile: posts driven into the lake bed, rigid platform — best for stable water and ice." },
   { value: "wheel", label: "Wheel (roll-in)", tip: "Wheel (roll-in): seasonal removal, lightweight frame on wheels — best for shallow water and Midwest winters." },
 ];
+
+/** Toggle a construction in the set, never letting it become empty. */
+function toggleConstruction(current: PieceConstruction[], value: PieceConstruction, on: boolean): PieceConstruction[] {
+  const next = on ? [...new Set([...current, value])] : current.filter((c) => c !== value);
+  return next.length > 0 ? next : ["floating"];
+}
+
 export default function PieceProperties({
   piece,
   onUpdate,
@@ -35,6 +42,7 @@ export default function PieceProperties({
   onDelete: () => void;
 }) {
   const [a, b] = dimFields(piece);
+  const current: PieceConstruction[] = piece.constructions ?? (piece.construction ? [piece.construction] : ["floating"]);
 
   return (
     <>
@@ -101,21 +109,23 @@ export default function PieceProperties({
       </Panel>
 
       <Panel title="Construction">
-        <label className="block text-sm">
-          <span className="text-slate-600">How this piece is supported</span>
-          <select
-            value={piece.construction ?? "floating"}
-            onChange={(e) => onUpdate({ construction: e.target.value as PieceConstruction })}
-            className="mt-0.5 block w-full rounded border border-slate-300 px-2 py-1 text-sm"
-          >
-            {CONSTRUCTIONS.map((c) => (
-              <option key={c.value} value={c.value} title={c.tip}>{c.label}</option>
-            ))}
-          </select>
-        </label>
-        <p className="text-xs text-slate-400">
-          {CONSTRUCTIONS.find((c) => c.value === (piece.construction ?? "floating"))?.tip}
-        </p>
+        <span className="text-sm text-slate-600">How this piece is supported (one or more)</span>
+        <div className="mt-1 flex flex-col gap-1">
+          {CONSTRUCTIONS.map((c) => {
+            const checked = current.includes(c.value);
+            return (
+              <label key={c.value} className="flex items-center gap-2 text-sm text-slate-700" title={c.tip}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => onUpdate({ constructions: toggleConstruction(current, c.value, e.target.checked) })}
+                />
+                {c.label}
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-xs text-slate-400">{CONSTRUCTIONS.find((c) => c.value === current[0])?.tip}</p>
       </Panel>
 
       <div className="px-4 py-3">

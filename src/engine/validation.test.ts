@@ -124,12 +124,13 @@ describe("validationEngine — joist rules (§3.2)", () => {
 });
 
 describe("validationEngine — sectioning (§3.3)", () => {
-  it("errors when a declared floating section exceeds the max section length", () => {
+  it("Phase 9: a too-long floating section auto-splits (advisory, not an error)", () => {
     const c = clone(canonicalFloatingConfig);
     c.overall.frameMaterial = "pt_pine"; // wood max 20 ft
     c.sections = [{ lengthFt: 28, widthFt: 6 }];
     const result = validationEngine(c);
-    expect(codes(result.errors)).toContain("section_length_exceeded");
+    expect(codes(result.errors)).not.toContain("section_length_exceeded");
+    expect(codes(result.warnings)).toContain("section_auto_split");
   });
 
   it("warns when a section is below the two-way-traffic minimum", () => {

@@ -41,6 +41,18 @@ import type {
   ValidationResult,
 } from "./types.js";
 
+/** Set equality for construction arrays (order-independent). */
+function sameConstructions(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sb = new Set(b);
+  return a.every((x) => sb.has(x));
+}
+
+/** Stable display string for a construction set, e.g. "floating+pile". */
+function fmtSet(a: readonly string[]): string {
+  return [...a].sort().join("+");
+}
+
 export function validationEngine(config: DockConfig): ValidationResult {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
@@ -78,9 +90,9 @@ export function validationEngine(config: DockConfig): ValidationResult {
   // shim turns legacy sections/overall into rectangle pieces).
   const pieces = resolvePieces(config);
   const bay = maxGapFtFor(config);
-  // Phase 8: support presence is per-piece construction, not the design dockType.
-  const hasPilePieces = pieces.some((p) => p.construction === "pile");
-  const hasFloatingPieces = pieces.some((p) => p.construction === "floating");
+  // Phase 8/9: support presence is per-piece construction set, not the dockType.
+  const hasPilePieces = pieces.some((p) => p.constructions.includes("pile"));
+  const hasFloatingPieces = pieces.some((p) => p.constructions.includes("floating"));
   // Rectangle pieces carry length/width section semantics; triangles are fills.
   const rectPieces = pieces
     .map((p, idx) => ({ idx, lengthFt: p.lengthFt, widthFt: p.widthFt, isRect: p.kind === "rectangle" }))
@@ -127,7 +139,7 @@ export function validationEngine(config: DockConfig): ValidationResult {
     // advisory (visual symmetry), not an error.
     for (let i = 0; i < pieces.length; i++) {
       const p = pieces[i]!;
-      if (p.kind !== "rectangle" || p.construction !== "pile") continue;
+      if (p.kind !== "rectangle" || !p.constructions.includes("pile")) continue;
       const last = pileLastBayShort(p, bay);
       if (last.short) {
         warn(
@@ -151,10 +163,12 @@ export function validationEngine(config: DockConfig): ValidationResult {
       );
     }
     for (const p of rectPieces) {
+      // Phase 9: a too-long section is no longer a hard error — it auto-splits
+      // for assembly (advisory + a split preview in the Schematic/3D views).
       if (p.lengthFt > maxLen) {
-        err(
-          "section_length_exceeded",
-          `Section ${p.idx + 1} length ${p.lengthFt} ft exceeds the ${maxLen} ft max for a ${config.overall.frameMaterial} floating section.`,
+        warn(
+          "section_auto_split",
+          "Section auto-split for assembly — see schematic preview.",
           `pieces[${p.idx}].lengthFt`,
         );
       }
@@ -183,7 +197,7 @@ export function validationEngine(config: DockConfig): ValidationResult {
   // Right triangles carry no float/pile of their own (they cut corners / bridge
   // sections). One that shares no edge with a rectangle has no buoyancy/support
   // source — advisory only.
-  const bboxes = pieces.map((p) => ({ kind: p.kind, construction: p.construction, bbox: pieceBBox(p) }));
+  const bboxes = pieces.map((p) => ({ kind: p.kind, constructions: p.constructions, bbox: pieceBBox(p) }));
   for (let i = 0; i < bboxes.length; i++) {
     const me = bboxes[i]!;
     if (me.kind !== "right_triangle") continue;
@@ -196,32 +210,32 @@ export function validationEngine(config: DockConfig): ValidationResult {
       );
       continue;
     }
-    // Phase 8: a triangle inherits support from its adjacent rectangle; flag a
-    // construction mismatch so the user sets them the same.
-    const mismatch = adjacentRects.find((o) => o.construction !== me.construction);
+    // Phase 9: a triangle inherits support from its adjacent rectangle; flag a
+    // construction-SET mismatch so the user sets them the same.
+    const mismatch = adjacentRects.find((o) => !sameConstructions(o.constructions, me.constructions));
     if (mismatch) {
       warn(
         "triangle_construction_mismatch",
-        `Triangle piece ${i + 1} has construction=${me.construction} but its adjacent rectangle has construction=${mismatch.construction}. Triangle connectors inherit support from the adjacent rectangle — set them to the same construction.`,
-        `pieces[${i}].construction`,
+        `Triangle piece ${i + 1} has construction=${fmtSet(me.constructions)} but its adjacent rectangle has construction=${fmtSet(mismatch.constructions)}. Triangle connectors inherit support from the adjacent rectangle — set them to the same construction.`,
+        `pieces[${i}].constructions`,
       );
     }
   }
 
-  // --- Phase 8: mixed-construction adjacency (transition zone) -------------
-  // Two adjacent rectangles with different construction form a valid transition
-  // (e.g. floating → pile) but need the right connector hardware — advisory.
+  // --- Phase 8/9: mixed-construction adjacency (transition zone) -----------
+  // Two adjacent rectangles with different construction SETS form a valid
+  // transition (e.g. floating → pile) but need the right connector — advisory.
   for (let i = 0; i < bboxes.length; i++) {
     const a = bboxes[i]!;
     if (a.kind !== "rectangle") continue;
     for (let j = i + 1; j < bboxes.length; j++) {
       const b = bboxes[j]!;
       if (b.kind !== "rectangle") continue;
-      if (a.construction === b.construction) continue;
+      if (sameConstructions(a.constructions, b.constructions)) continue;
       if (!bboxesShareEdge(a.bbox, b.bbox)) continue;
       warn(
         "mixed_construction_adjacency",
-        `Piece ${i + 1} (construction=${a.construction}) meets piece ${j + 1} (construction=${b.construction}) at a shared edge. This is a valid transition zone — verify the connector hardware (typically a hinged bracket sized for the expected float travel).`,
+        `Piece ${i + 1} (construction=${fmtSet(a.constructions)}) meets piece ${j + 1} (construction=${fmtSet(b.constructions)}) at a shared edge. This is a valid transition zone — verify the connector hardware (typically a hinged bracket sized for the expected float travel).`,
         `pieces[${i}]`,
       );
     }

@@ -8,7 +8,7 @@ import "server-only";
  * Idempotent: safe to run repeatedly from the Prisma seed script.
  */
 
-import { generateStartingDesign, migrateConfigToPhase8, type DockConfig } from "@/engine";
+import { generateStartingDesign, migrateConfigToPhase9, type DockConfig } from "@/engine";
 import { prisma } from "./db.js";
 import { entitlementsForTier, leadCapForTier } from "./entitlements.js";
 import { signUpBuilder } from "./onboarding.js";
@@ -72,7 +72,7 @@ export async function seedAcme(): Promise<string> {
       { tenantId: ACME_TENANT_ID, dockType: "floating" },
     );
     // Phase 8: stamp the single starter piece with construction = "floating".
-    await scope.createTemplate({ name: STARTER_TEMPLATE_NAME, config: migrateConfigToPhase8(config), createdBy: "seed" });
+    await scope.createTemplate({ name: STARTER_TEMPLATE_NAME, config: migrateConfigToPhase9(config), createdBy: "seed" });
   }
 
   // Phase 8: a hybrid template (floating + pile rectangle joined by a triangle
@@ -87,9 +87,9 @@ export async function seedAcme(): Promise<string> {
       ...base,
       overall: { ...base.overall, lengthFt: 40, widthFt: 8, maxGapFt: 8 },
       pieces: [
-        { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 20, widthFt: 8, construction: "floating" },
-        { pieceKind: "right_triangle", posX: 20, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 8, construction: "pile" },
-        { pieceKind: "rectangle", posX: 24, posY: 0, rotationDeg: 0, lengthFt: 16, widthFt: 8, construction: "pile" },
+        { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 20, widthFt: 8, constructions: ["floating"] },
+        { pieceKind: "right_triangle", posX: 20, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 8, constructions: ["pile"] },
+        { pieceKind: "rectangle", posX: 24, posY: 0, rotationDeg: 0, lengthFt: 16, widthFt: 8, constructions: ["pile"] },
       ],
     };
     await scope.createTemplate({ name: HYBRID_TEMPLATE_NAME, config: hybrid, createdBy: "seed" });

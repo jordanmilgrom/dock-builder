@@ -50,8 +50,18 @@ export interface NormalizedPiece {
   widthFt: number;
   legAFt: number;
   legBFt: number;
-  /** Phase 8: resolved per-piece construction (defaults from the design dockType). */
-  construction: PieceConstruction;
+  /**
+   * Phase 9: resolved per-piece construction SET (≥1). Defaults from the legacy
+   * scalar `construction`, then the design dockType. Treated as a set.
+   */
+  constructions: PieceConstruction[];
+}
+
+/** Resolve a piece's construction set: `constructions` → legacy scalar → default. */
+export function resolveConstructions(p: DockPiece, defaultConstruction: PieceConstruction): PieceConstruction[] {
+  if (p.constructions && p.constructions.length > 0) return p.constructions;
+  if (p.construction) return [p.construction];
+  return [defaultConstruction];
 }
 
 function normalize(p: DockPiece, defaultConstruction: PieceConstruction): NormalizedPiece {
@@ -67,7 +77,7 @@ function normalize(p: DockPiece, defaultConstruction: PieceConstruction): Normal
     widthFt: isTri ? legBFt : p.widthFt ?? 0,
     legAFt,
     legBFt,
-    construction: p.construction ?? defaultConstruction,
+    constructions: resolveConstructions(p, defaultConstruction),
   };
 }
 
@@ -219,7 +229,7 @@ export function worldBounds(pieces: NormalizedPiece[]): { minX: number; minY: nu
  * the adjacent rectangle's floats support them.
  */
 export function floatLayoutForPiece(p: NormalizedPiece, maxGapFt: number = FLOAT_PLACEMENT.maxSpacingFt): PlacementFt[] {
-  if (p.construction !== "floating") return [];
+  if (!p.constructions.includes("floating")) return [];
   if (p.kind === "right_triangle") return [];
   const rows = floatRowCount(p.widthFt);
   const xs = evenDistribute(p.lengthFt, maxGapFt); // corners + even bays ≤ maxGap
@@ -289,7 +299,7 @@ export const bayFtFor = maxGapFtFor;
  * (connectors draw support from the adjacent rectangle's piles).
  */
 export function pileLayoutForPiece(p: NormalizedPiece, maxGapFt: number): PlacementFt[] {
-  if (p.construction !== "pile") return [];
+  if (!p.constructions.includes("pile")) return [];
   if (p.kind === "right_triangle") return [];
   const xs = evenDistribute(p.lengthFt, maxGapFt);
   const ys = evenDistribute(p.widthFt, maxGapFt);
@@ -312,7 +322,7 @@ export function allPilePositions(config: DockConfig): PlacementFt[] {
  * No interior wheels. Returns [] for non-wheel pieces and triangles.
  */
 export function wheelLayoutForPiece(p: NormalizedPiece): PlacementFt[] {
-  if (p.construction !== "wheel") return [];
+  if (!p.constructions.includes("wheel")) return [];
   if (p.kind === "right_triangle") return [];
   return [toWorld(p, 0, p.widthFt / 2), toWorld(p, p.lengthFt, p.widthFt / 2)];
 }

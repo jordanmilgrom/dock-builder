@@ -44,7 +44,7 @@ describe("hybrid dock customer flow", () => {
     expect(rev).toBeDefined();
 
     // Engine resolves three pieces, one per construction.
-    expect(resolvePieces(hybrid).map((p) => p.construction)).toEqual(["floating", "pile", "wheel"]);
+    expect(resolvePieces(hybrid).map((p) => p.constructions)).toEqual([["floating"], ["pile"], ["wheel"]]);
 
     // Supports counted per construction.
     expect(floatCount(hybrid)).toBe(8);

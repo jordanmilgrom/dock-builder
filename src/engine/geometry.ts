@@ -83,7 +83,7 @@ export function flotationMultiplier(config: DockConfig): number {
 export function floatingAreaFt2(config: DockConfig): number {
   return round(
     resolvePieces(config)
-      .filter((p) => p.construction === "floating")
+      .filter((p) => p.constructions.includes("floating"))
       .reduce((sum, p) => sum + pieceAreaFt2(p), 0),
   );
 }
@@ -205,10 +205,15 @@ export function connectorCount(sectionCount: number): number {
   return Math.max(0, sectionCount - 1);
 }
 
-/** Gangway run length (ft) from rise/slope: L = rise / slope (§3.4). */
+/**
+ * Gangway run length (ft). Phase 9: in "length" mode the customer's chosen
+ * lengthFt is authoritative; in "slope" mode it derives from rise/targetSlope.
+ */
 export function gangwayLengthFt(config: DockConfig): number {
   const g = config.gangway;
   if (!g?.present) return 0;
+  const mode = g.mode ?? (g.targetSlope ? "slope" : "length");
+  if (mode === "length") return round(g.lengthFt ?? 12);
   const rise = config.site.shoreHeightAboveWaterFt;
   const ratio = parseSlopeRatio(g.targetSlope);
   if (ratio == null || ratio <= 0) return 0;
@@ -231,6 +236,11 @@ export function parseSlopeRatio(slope: string | undefined): number | null {
 export function gangwaySlopePct(config: DockConfig): number | null {
   const g = config.gangway;
   if (!g?.present) return null;
+  // Phase 9: derive from the resolved length + shore rise so it works in both
+  // length and slope modes.
+  const len = gangwayLengthFt(config);
+  const rise = config.site.shoreHeightAboveWaterFt;
+  if (len > 0 && rise > 0) return round((rise / len) * 100, 1);
   const ratio = parseSlopeRatio(g.targetSlope);
   if (ratio == null || ratio <= 0) return null;
   return round((1 / ratio) * 100, 1);

@@ -176,5 +176,8 @@ Later phases (not built yet) per §8:
 - **Phase 8** — Hybrid construction: per-piece `construction` (floating / pile /
   wheel) and `evenDistribute` support spacing across floats + piles. See
   [PHASE8.md](PHASE8.md).
+- **Phase 9** — Domain corrections: multi-factor recommendation, auto-split for
+  too-long sections, per-construction schematic + 3D rendering, gangway-by-length,
+  and multi-construction-per-piece (`constructions[]`). See [PHASE9.md](PHASE9.md).
 
 The engines here are the stable foundation those phases consume.

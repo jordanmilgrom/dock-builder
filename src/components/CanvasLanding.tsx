@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  recommendConstructions,
   recommendDockType,
   type BottomType,
   type DockType,
@@ -196,6 +197,8 @@ function WizardModal({
   const [use, setUse] = useState<UseClass>("residential");
   const [override, setOverride] = useState<DockType | "">("");
   const rec = useMemo(() => recommendDockType(site), [site]);
+  // Phase 9: multi-factor construction recommendation (exposure + ice + bottom + depth).
+  const constructionRec = useMemo(() => recommendConstructions(site), [site]);
   const num = (v: string, fb: number) => { const n = Number(v); return Number.isFinite(n) ? n : fb; };
 
   const steps = ["Water", "Bottom & exposure", "Shore & use", "Recommendation"];
@@ -258,12 +261,13 @@ function WizardModal({
           {step === 3 && (
             <div className="text-sm text-slate-700">
               <p>
-                Based on your shoreline, we suggest a{" "}
-                <span className="font-semibold text-brand">{rec.dockType}</span> dock.
+                Based on your shoreline, we suggest{" "}
+                <span className="font-semibold text-brand">{constructionRec.constructions.join(" + ")}</span>{" "}
+                construction.
               </p>
-              {rec.reasons.length > 0 && (
+              {constructionRec.reasons.length > 0 && (
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-600">
-                  {rec.reasons.map((r) => (<li key={r}>{r}</li>))}
+                  {constructionRec.reasons.map((r) => (<li key={r}>{r}</li>))}
                 </ul>
               )}
               <label className="mt-3 block">
@@ -292,7 +296,7 @@ function WizardModal({
             </button>
           ) : (
             <button
-              onClick={() => onFinish(site, use, override || undefined)}
+              onClick={() => onFinish(site, use, override || (constructionRec.constructions[0] === "floating" ? "floating" : "pile"))}
               disabled={busy}
               className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50"
             >

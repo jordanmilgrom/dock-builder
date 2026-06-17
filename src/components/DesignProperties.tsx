@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  computeGangway,
   recommendDockType,
   type AccessoryType,
   type BottomType,
@@ -112,12 +113,28 @@ export default function DesignProperties({
           <input type="checkbox" checked={config.gangway?.present ?? false} onChange={(e) => setGangway({ present: e.target.checked })} />
           Include gangway
         </label>
-        {config.gangway?.present && (
-          <Row>
-            <Sel label="Target slope" value={config.gangway.targetSlope ?? "1:12"} options={SLOPES} onChange={(v) => setGangway({ targetSlope: v })} />
-            <DebouncedNum label="Width (in)" value={config.gangway.widthIn ?? 48} step={1} onCommit={(n) => setGangway({ widthIn: n })} />
-          </Row>
-        )}
+        {config.gangway?.present && (() => {
+          const mode = config.gangway.mode ?? (config.gangway.targetSlope ? "slope" : "length");
+          const g = computeGangway(config.gangway, config.site.shoreHeightAboveWaterFt);
+          return (
+            <>
+              <div className="inline-flex overflow-hidden rounded border border-slate-300 text-xs">
+                <button onClick={() => setGangway({ mode: "length", lengthFt: config.gangway?.lengthFt ?? 12 })} className={`px-2 py-1 ${mode === "length" ? "bg-brand text-white" : "bg-white text-slate-600"}`}>Length</button>
+                <button onClick={() => setGangway({ mode: "slope", targetSlope: config.gangway?.targetSlope ?? "1:12" })} className={`px-2 py-1 ${mode === "slope" ? "bg-brand text-white" : "bg-white text-slate-600"}`}>Target slope</button>
+              </div>
+              <Row>
+                {mode === "length" ? (
+                  <DebouncedNum label="Length (ft, 3–24)" value={config.gangway.lengthFt ?? 12} step={1} min={3} onCommit={(n) => setGangway({ lengthFt: n })} />
+                ) : (
+                  <Sel label="Target slope" value={config.gangway.targetSlope ?? "1:12"} options={SLOPES} onChange={(v) => setGangway({ targetSlope: v })} />
+                )}
+                <DebouncedNum label="Width (in)" value={config.gangway.widthIn ?? 48} step={1} onCommit={(n) => setGangway({ widthIn: n })} />
+              </Row>
+              <p className="text-xs text-slate-500">Slope {g.slopeLabel} ({g.slopePct}%)</p>
+              {g.warning && <p className="text-xs text-amber-700">{g.warning}</p>}
+            </>
+          );
+        })()}
       </Panel>
 
       <Panel title="Materials">

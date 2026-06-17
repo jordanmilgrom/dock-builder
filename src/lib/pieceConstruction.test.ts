@@ -66,3 +66,29 @@ describe("hybrid layouts per piece", () => {
     expect(requiredBuoyancyLbs(hybrid)).toBeCloseTo(floatingAreaFt2(hybrid) * flotationMultiplier(hybrid), 2);
   });
 });
+
+describe("Phase 9: a single piece with MULTIPLE constructions", () => {
+  const multi: DockConfig = {
+    schemaVersion: 1,
+    tenantId: "acme-docks",
+    dockType: "floating",
+    use: "residential",
+    site: { depthAtEndLowWaterFt: 6, seasonalFluctuationFt: 1.5, bottom: "sand", waveExposure: "inland_lake", seasonalIce: false, shoreHeightAboveWaterFt: 3 },
+    overall: { lengthFt: 20, widthFt: 8, deckingMaterial: "pt_5/4x6", deckingOrientation: "straight", frameMaterial: "aluminum", maxGapFt: 8 },
+    // One deck that is BOTH floating and pile-anchored.
+    pieces: [{ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 20, widthFt: 8, constructions: ["floating", "pile"] }],
+  };
+  const piece = resolvePieces(multi)[0]!;
+
+  it("gets BOTH a float layout AND a pile layout", () => {
+    expect(floatLayoutForPiece(piece, 8).length).toBeGreaterThan(0);
+    expect(pileLayoutForPiece(piece, 8).length).toBeGreaterThan(0);
+    expect(wheelLayoutForPiece(piece)).toHaveLength(0);
+  });
+
+  it("counts both floats and piles for the one piece, and bills both", () => {
+    expect(floatCount(multi)).toBeGreaterThan(0);
+    expect(pilingCount(multi)).toBeGreaterThan(0);
+    expect(requiredBuoyancyLbs(multi)).toBeGreaterThan(0); // still floating → needs buoyancy
+  });
+});

@@ -130,10 +130,18 @@ export interface DockPiece {
   legAFt?: number;
   legBFt?: number;
   /**
-   * Phase 8: this piece's construction. Optional for back-compat — when absent,
-   * the engine defaults it to the design's `dockType` (pipe→pile) on read.
+   * Phase 8: this piece's construction (single). Optional + deprecated in Phase 9
+   * in favor of `constructions`; still read as a back-compat fallback.
+   * @deprecated use {@link DockPiece.constructions}
    */
   construction?: PieceConstruction;
+  /**
+   * Phase 9: a piece can carry MORE THAN ONE construction at once — e.g. a deck
+   * that is both floating and pile-anchored (a real technique). Treated as a set
+   * (order irrelevant). Defaults to `['floating']` (or the legacy scalar
+   * `construction`, or the design dockType) on read.
+   */
+  constructions?: PieceConstruction[];
   /** Optional manually-placed floats (world-independent, piece-local feet). */
   floats?: FloatPlacement[];
 }
@@ -154,7 +162,17 @@ export type GangwaySlope = "1:8" | "1:12" | "1:20" | string;
 export interface GangwayConfig {
   present: boolean;
   material?: FrameMaterial;
-  /** Target slope as ratio string, e.g. "1:12". */
+  /**
+   * Phase 9: how the gangway is specified.
+   *  - "length": customer picks `lengthFt`; engine derives slope + warns if steep.
+   *  - "slope" : customer picks `targetSlope`; engine derives length (legacy).
+   * Defaults to "length" (lengthFt 12) when absent; a legacy `targetSlope`-only
+   * config reads as "slope".
+   */
+  mode?: "length" | "slope";
+  /** Phase 9: gangway run length (ft), 3–24, used in "length" mode. */
+  lengthFt?: number;
+  /** Target slope as ratio string, e.g. "1:12" (used in "slope" mode). */
   targetSlope?: GangwaySlope;
   widthIn?: number;
   handrails?: boolean;

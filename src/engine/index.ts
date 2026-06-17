@@ -51,7 +51,20 @@ export {
   maxGapFtFor,
 } from "./pieces.js";
 export { evenDistribute, evenBayLengthFt } from "./evenDistribute.js";
-export { migrateConfigToPhase8 } from "./migrate.js";
+export {
+  autoSplitPiece,
+  autoSplitConfig,
+  autoSplitConnectorCount,
+  hasAutoSplit,
+  maxSectionFtFor,
+} from "./autoSplit.js";
+export type { AutoSplitResult } from "./autoSplit.js";
+export { recommendConstructions } from "./recommend.js";
+export type { SiteFields, ConstructionRecommendation } from "./recommend.js";
+export { computeGangway, GANGWAY_MIN_FT, GANGWAY_MAX_FT, GANGWAY_WARN_RATIO } from "./gangway.js";
+export type { GangwayResult } from "./gangway.js";
+export { migrateConfigToPhase8, migrateConfigToPhase9 } from "./migrate.js";
+export { resolveConstructions } from "./pieces.js";
 export {
   floatingAreaFt2,
   suggestedWheelLayout,

@@ -13,8 +13,8 @@
  */
 
 import { PILE_BAY } from "./constants.js";
-import { defaultConstructionFor } from "./pieces.js";
-import type { DockConfig } from "./types.js";
+import { defaultConstructionFor, resolveConstructions } from "./pieces.js";
+import type { DockConfig, GangwayConfig } from "./types.js";
 
 export function migrateConfigToPhase8(config: DockConfig): DockConfig {
   const dc = defaultConstructionFor(config.dockType);
@@ -29,6 +29,37 @@ export function migrateConfigToPhase8(config: DockConfig): DockConfig {
   const gap = overall.maxGapFt ?? overall.bayFt ?? PILE_BAY.defaultFt;
   overall.maxGapFt = gap;
   delete overall.bayFt;
+
+  return next;
+}
+
+/**
+ * Config migration to Phase 9. Builds on Phase 8 and additionally:
+ *   - converts each piece's scalar `construction` into a `constructions` array
+ *     (single-element); drops the scalar;
+ *   - normalizes the gangway to the `{ mode }` shape — a legacy `targetSlope`-only
+ *     gangway becomes `{ mode: 'slope', targetSlope }`, otherwise `{ mode: 'length' }`.
+ * Never mutates the input.
+ */
+export function migrateConfigToPhase9(config: DockConfig): DockConfig {
+  const dc = defaultConstructionFor(config.dockType);
+  const next = migrateConfigToPhase8(config);
+
+  if (next.pieces) {
+    next.pieces = next.pieces.map((p) => {
+      const constructions = resolveConstructions(p, dc);
+      const { construction: _drop, ...rest } = p;
+      void _drop;
+      return { ...rest, constructions };
+    });
+  }
+
+  if (next.gangway?.present && next.gangway.mode == null) {
+    const g: GangwayConfig = next.gangway.targetSlope
+      ? { ...next.gangway, mode: "slope" }
+      : { ...next.gangway, mode: "length", lengthFt: next.gangway.lengthFt ?? 12 };
+    next.gangway = g;
+  }
 
   return next;
 }

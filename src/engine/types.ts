@@ -142,6 +142,8 @@ export interface DockPiece {
    * `construction`, or the design dockType) on read.
    */
   constructions?: PieceConstruction[];
+  /** Phase 10: stacking order for Bring-to-front / Send-to-back. Default 0. Purely visual. */
+  z?: number;
   /** Optional manually-placed floats (world-independent, piece-local feet). */
   floats?: FloatPlacement[];
 }

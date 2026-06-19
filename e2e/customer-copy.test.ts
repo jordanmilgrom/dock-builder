@@ -22,7 +22,6 @@ const CUSTOMER_FILES = [
   "src/components/PieceProperties.tsx",
   "src/components/DesignProperties.tsx",
   "src/components/PanelControls.tsx",
-  "src/components/CustomPieceModal.tsx",
   "src/components/SaveGate.tsx",
   "src/components/ViewsPanel.tsx",
   "src/components/RevisionList.tsx",

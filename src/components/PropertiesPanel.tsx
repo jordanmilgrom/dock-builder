@@ -13,6 +13,7 @@ import PieceProperties from "./PieceProperties";
  */
 export default function PropertiesPanel({
   selectedIndex,
+  selectionCount = 0,
   piece,
   config,
   update,
@@ -24,6 +25,7 @@ export default function PropertiesPanel({
   actions,
 }: {
   selectedIndex: number | null;
+  selectionCount?: number;
   piece: DockPiece | null;
   config: DockConfig;
   update: (mut: (c: DockConfig) => DockConfig) => void;
@@ -34,7 +36,8 @@ export default function PropertiesPanel({
   priceHidden: boolean;
   actions: DesignActions;
 }) {
-  const pill = selectionPill(selectedIndex);
+  const multi = selectionCount > 1;
+  const pill = multi ? "Selection" : selectionPill(selectedIndex);
 
   return (
     <aside className="flex h-full w-full flex-col overflow-y-auto bg-white">
@@ -43,9 +46,18 @@ export default function PropertiesPanel({
           {pill}
         </span>
         <span className="text-xs text-slate-400">
-          {pill === "Selection" ? "Editing selected piece" : "Editing the whole design"}
+          {multi ? `${selectionCount} pieces selected` : pill === "Selection" ? "Editing selected piece" : "Editing the whole design"}
         </span>
       </div>
+
+      {multi && (
+        <div className="border-b border-slate-200 px-4 py-3">
+          <p className="text-xs text-slate-500">Editing the most recently selected piece. Drag any selected piece to move them all; use the context menu for bulk Duplicate / Delete / z-order.</p>
+          <button onClick={onDeletePiece} className="mt-2 w-full rounded border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
+            Delete {selectionCount} pieces
+          </button>
+        </div>
+      )}
 
       {piece ? (
         <PieceProperties piece={piece} onUpdate={onUpdatePiece} onDelete={onDeletePiece} />

@@ -99,9 +99,29 @@ export interface DockSection {
 // Phase 6: multi-piece geometry (§ real-world docks are composed of pieces)
 // ---------------------------------------------------------------------------
 
-export type PieceKind = "rectangle" | "right_triangle";
+export type PieceKind = "rectangle" | "right_triangle" | "gangway";
 /** Only square rotations are supported (§ Phase 6 out-of-scope: arbitrary angles). */
 export type Rotation = 0 | 90 | 180 | 270;
+
+/** Phase 11: an accessory placed on a specific edge of a piece (visual + pricing). */
+export type AccessoryKind =
+  | "cleat"
+  | "ladder"
+  | "bumper"
+  | "edging"
+  | "swim_ladder"
+  | "rod_holder"
+  | "bench";
+
+export type PieceEdge = "top" | "bottom" | "left" | "right";
+
+export interface AccessoryPlacement {
+  id: string;
+  kind: AccessoryKind;
+  edge: PieceEdge;
+  /** Offset along the chosen edge from the piece's local origin, in feet. */
+  offsetFt: number;
+}
 
 /**
  * Phase 8: per-piece construction. Real hybrid docks combine floating, pile, and
@@ -144,6 +164,12 @@ export interface DockPiece {
   constructions?: PieceConstruction[];
   /** Phase 10: stacking order for Bring-to-front / Send-to-back. Default 0. Purely visual. */
   z?: number;
+  /** Phase 11: accessories placed on this piece's edges (visual + pricing). */
+  accessories?: AccessoryPlacement[];
+  /** Phase 11 (gangway pieces): the dock piece this gangway attaches to. */
+  connectsToPieceId?: string;
+  /** Phase 11: optional stable id (used by gangway attachment + accessory edits). */
+  id?: string;
   /** Optional manually-placed floats (world-independent, piece-local feet). */
   floats?: FloatPlacement[];
 }
@@ -212,6 +238,29 @@ export interface OverallConfig {
   maxGapFt?: number;
   /** @deprecated Phase 6 name for {@link maxGapFt}; read only as a back-compat fallback. */
   bayFt?: number;
+  /** Phase 11: pile material for the 3D viewer. Default "pressure_treated". */
+  pileMaterial?: "pressure_treated" | "concrete" | "steel";
+}
+
+/** Phase 11: a single point on the underwater depth profile. */
+export interface DepthPoint {
+  /** Horizontal distance out from shore, feet. */
+  distanceFromShoreFt: number;
+  /** Water depth at that distance, feet (positive = below the water surface). */
+  depthFt: number;
+}
+
+/**
+ * Phase 11: the site's side-view profile, edited in the Site tab and consumed
+ * (never depended on) by pricing/validation/3D. Shore is on the left.
+ */
+export interface Bathymetry {
+  shoreHeightFt: number;
+  waterHeightFt: number;
+  /** Above-water land slope as a percent grade. */
+  landSlopePct: number;
+  /** Monotonic-by-distance depth handles along the lake bed. */
+  depthProfile: DepthPoint[];
 }
 
 export interface DockConfig {
@@ -227,6 +276,8 @@ export interface DockConfig {
   sections?: DockSection[];
   gangway?: GangwayConfig;
   accessories?: AccessoryConfig[];
+  /** Phase 11: side-view site profile (shore + lake bed). Defaults applied on read. */
+  bathymetry?: Bathymetry;
   builtInSteps?: BuiltInSteps;
   /**
    * Optional resolved float specs keyed by SKU. When present, the engine uses

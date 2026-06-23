@@ -18,7 +18,9 @@ import { matchShortcut } from "@/lib/canvasShortcuts";
 import { createHistory } from "@/lib/undoRedo";
 import { bringToFront, copyPieces, duplicatePieces, pastePieces, sendToBack } from "@/lib/clipboardOps";
 import type { DrawTool } from "@/lib/clickDragDraw";
+import { resolveBathymetry, snapGangwayToEdge, type Bathymetry } from "@/engine";
 import SchematicMode from "./SchematicMode";
+import SiteMode from "./SiteMode";
 import ThreeDMode from "./ThreeDMode";
 import PropertiesPanel from "./PropertiesPanel";
 import PieceContextMenu, { type ContextAction, type ContextMenuState } from "./PieceContextMenu";
@@ -29,6 +31,7 @@ const TOOLS: { tool: DrawTool; icon: string; label: string }[] = [
   { tool: "rectangle", icon: "▭", label: "Rectangle" },
   { tool: "square", icon: "□", label: "Square" },
   { tool: "right_triangle", icon: "◹", label: "Right triangle" },
+  { tool: "gangway", icon: "▤", label: "Gangway" },
 ];
 
 /**
@@ -129,8 +132,21 @@ export default function ConfiguratorPane({
     setSelectedIndices([pieces.length]);
   }
   function addDrawnPiece(p: DockPiece) {
-    setPieces([...pieces, p]);
+    let placed = p;
+    // Phase 11: a freshly-drawn gangway snaps to the nearest dock-piece edge.
+    if (p.pieceKind === "gangway") {
+      const targets = pieces
+        .map((q, i) => ({ q, i }))
+        .filter(({ q }) => q.pieceKind !== "gangway")
+        .map(({ q, i }) => ({ id: String(i), bbox: dockPieceBbox(q) }));
+      const snap = snapGangwayToEdge({ posX: p.posX, posY: p.posY, lengthFt: p.lengthFt ?? 0, widthFt: p.widthFt ?? 0 }, targets);
+      if (snap) placed = { ...p, posX: snap.posX, posY: snap.posY, connectsToPieceId: snap.connectsToPieceId };
+    }
+    setPieces([...pieces, placed]);
     setSelectedIndices([pieces.length]);
+  }
+  function setBathymetry(b: Bathymetry) {
+    update((c) => ({ ...c, bathymetry: b }));
   }
   function updatePiece(patch: Partial<DockPiece>) {
     if (primary == null) return;
@@ -350,6 +366,7 @@ export default function ConfiguratorPane({
               {...(primaryColor ? { primaryColor } : {})}
             />
           )}
+          {view === "site" && <SiteMode bathymetry={resolveBathymetry(config)} onChange={setBathymetry} />}
           {view === "schematic" && <SchematicMode config={config} />}
           {view === "3d" && (threeDEnabled
             ? <ThreeDMode config={config} {...(primaryColor ? { primaryColor } : {})} />
@@ -385,6 +402,22 @@ export default function ConfiguratorPane({
       )}
     </div>
   );
+}
+
+/** Axis-aligned world bbox of one piece (rotation-aware). */
+function dockPieceBbox(p: DockPiece): { minX: number; minY: number; maxX: number; maxY: number } {
+  const rotate = (x: number, y: number, deg: Rotation): [number, number] =>
+    deg === 90 ? [-y, x] : deg === 180 ? [-x, -y] : deg === 270 ? [y, -x] : [x, y];
+  const corners = p.pieceKind === "right_triangle"
+    ? [[0, 0], [p.legAFt ?? 0, 0], [0, p.legBFt ?? 0]]
+    : [[0, 0], [p.lengthFt ?? 0, 0], [p.lengthFt ?? 0, p.widthFt ?? 0], [0, p.widthFt ?? 0]];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of corners) {
+    const [rx, ry] = rotate(x!, y!, p.rotationDeg);
+    minX = Math.min(minX, p.posX + rx); maxX = Math.max(maxX, p.posX + rx);
+    minY = Math.min(minY, p.posY + ry); maxY = Math.max(maxY, p.posY + ry);
+  }
+  return { minX, minY, maxX, maxY };
 }
 
 /** Bounding length×width (ft) across drawn pieces, honoring 90° rotations. */

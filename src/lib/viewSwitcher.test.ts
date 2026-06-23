@@ -51,7 +51,7 @@ describe("viewSearchString", () => {
 
 describe("catalog", () => {
   it("has a label for every mode", () => {
-    expect(VIEW_MODES).toEqual(["canvas", "schematic", "3d"]);
+    expect(VIEW_MODES).toEqual(["canvas", "site", "schematic", "3d"]);
     for (const m of VIEW_MODES) expect(VIEW_LABELS[m]).toBeTruthy();
   });
 });

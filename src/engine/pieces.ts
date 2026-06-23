@@ -230,7 +230,7 @@ export function worldBounds(pieces: NormalizedPiece[]): { minX: number; minY: nu
  */
 export function floatLayoutForPiece(p: NormalizedPiece, maxGapFt: number = FLOAT_PLACEMENT.maxSpacingFt): PlacementFt[] {
   if (!p.constructions.includes("floating")) return [];
-  if (p.kind === "right_triangle") return [];
+  if (p.kind === "right_triangle" || p.kind === "gangway") return [];
   const rows = floatRowCount(p.widthFt);
   const xs = evenDistribute(p.lengthFt, maxGapFt); // corners + even bays ≤ maxGap
   const out: PlacementFt[] = [];
@@ -300,7 +300,7 @@ export const bayFtFor = maxGapFtFor;
  */
 export function pileLayoutForPiece(p: NormalizedPiece, maxGapFt: number): PlacementFt[] {
   if (!p.constructions.includes("pile")) return [];
-  if (p.kind === "right_triangle") return [];
+  if (p.kind === "right_triangle" || p.kind === "gangway") return [];
   const xs = evenDistribute(p.lengthFt, maxGapFt);
   const ys = evenDistribute(p.widthFt, maxGapFt);
   const out: PlacementFt[] = [];
@@ -323,7 +323,7 @@ export function allPilePositions(config: DockConfig): PlacementFt[] {
  */
 export function wheelLayoutForPiece(p: NormalizedPiece): PlacementFt[] {
   if (!p.constructions.includes("wheel")) return [];
-  if (p.kind === "right_triangle") return [];
+  if (p.kind === "right_triangle" || p.kind === "gangway") return [];
   return [toWorld(p, 0, p.widthFt / 2), toWorld(p, p.lengthFt, p.widthFt / 2)];
 }
 

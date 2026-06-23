@@ -13,6 +13,7 @@
  */
 
 import { PILE_BAY } from "./constants.js";
+import { DEFAULT_BATHYMETRY } from "./bathymetry.js";
 import { defaultConstructionFor, resolveConstructions } from "./pieces.js";
 import type { DockConfig, GangwayConfig } from "./types.js";
 
@@ -61,5 +62,21 @@ export function migrateConfigToPhase9(config: DockConfig): DockConfig {
     next.gangway = g;
   }
 
+  return next;
+}
+
+/**
+ * Config migration to Phase 11. Builds on Phase 9 and additionally:
+ *   - applies the default {@link DEFAULT_BATHYMETRY} when absent;
+ *   - ensures every piece has an `accessories: []` array.
+ * Per-piece accessories are additive to the legacy design-level accessory counts
+ * (no overlap in existing data), so pricing stays stable. Never mutates input.
+ */
+export function migrateConfigToPhase11(config: DockConfig): DockConfig {
+  const next = migrateConfigToPhase9(config);
+  if (!next.bathymetry) next.bathymetry = structuredClone(DEFAULT_BATHYMETRY);
+  if (next.pieces) {
+    next.pieces = next.pieces.map((p) => ({ ...p, accessories: p.accessories ?? [] }));
+  }
   return next;
 }

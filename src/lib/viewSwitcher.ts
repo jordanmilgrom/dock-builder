@@ -4,12 +4,14 @@
  * No React here — the component reads/writes the query string through these.
  */
 
-export type ViewMode = "canvas" | "schematic" | "3d";
+export type ViewMode = "canvas" | "site" | "schematic" | "3d";
 
-export const VIEW_MODES: ViewMode[] = ["canvas", "schematic", "3d"];
+// Phase 11: the Site (bathymetry) tab sits between Canvas and Schematic.
+export const VIEW_MODES: ViewMode[] = ["canvas", "site", "schematic", "3d"];
 
 export const VIEW_LABELS: Record<ViewMode, string> = {
   canvas: "Canvas",
+  site: "Site",
   schematic: "Schematic",
   "3d": "3D",
 };
@@ -17,7 +19,7 @@ export const VIEW_LABELS: Record<ViewMode, string> = {
 export const DEFAULT_VIEW: ViewMode = "canvas";
 
 export function isViewMode(s: string | null | undefined): s is ViewMode {
-  return s === "canvas" || s === "schematic" || s === "3d";
+  return s === "canvas" || s === "site" || s === "schematic" || s === "3d";
 }
 
 /** Parse `?view=` (any source), falling back to Canvas for missing/unknown. */

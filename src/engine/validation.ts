@@ -35,6 +35,7 @@ import {
   requiredBuoyancyLbs,
 } from "./geometry.js";
 import { bboxesShareEdge, maxGapFtFor, pieceBBox, pileLastBayShort, resolvePieces } from "./pieces.js";
+import { depthAtPieceCenter, resolveBathymetry } from "./bathymetry.js";
 import type {
   DockConfig,
   ValidationIssue,
@@ -236,6 +237,28 @@ export function validationEngine(config: DockConfig): ValidationResult {
       warn(
         "mixed_construction_adjacency",
         `Piece ${i + 1} (construction=${fmtSet(a.constructions)}) meets piece ${j + 1} (construction=${fmtSet(b.constructions)}) at a shared edge. This is a valid transition zone — verify the connector hardware (typically a hinged bracket sized for the expected float travel).`,
+        `pieces[${i}]`,
+      );
+    }
+  }
+
+  // --- Phase 11: bathymetry-driven, per-piece depth advisories ------------
+  const bathymetry = resolveBathymetry(config);
+  for (let i = 0; i < pieces.length; i++) {
+    const p = pieces[i]!;
+    if (p.kind === "right_triangle") continue;
+    const depth = depthAtPieceCenter(bathymetry, p);
+    if (p.constructions.includes("pile") && depth > 12) {
+      warn(
+        "pile_over_deep_water",
+        `Piles aren't practical past ~12 ft of water depth (≈${depth.toFixed(1)} ft here) — consider floating in this section.`,
+        `pieces[${i}]`,
+      );
+    }
+    if (p.constructions.includes("floating") && depth < 3) {
+      warn(
+        "float_over_shallow_water",
+        `Floats need at least 3 ft of water to avoid bottoming out (≈${depth.toFixed(1)} ft here) — consider a pile or wheel construction.`,
         `pieces[${i}]`,
       );
     }

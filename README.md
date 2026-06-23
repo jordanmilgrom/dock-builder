@@ -183,4 +183,8 @@ Later phases (not built yet) per §8:
   shortcuts, undo/redo, zoom buttons, a rotation handle that rotates with the
   piece, and Illustrator-style click-drag drawing. See [PHASE10.md](PHASE10.md).
 
+- **Phase 11** — Site bathymetry editor, shoreline + accessories on Canvas, the
+  gangway as a drawable piece, and material-based 3D + sloped lake bed. See
+  [PHASE11.md](PHASE11.md).
+
 The engines here are the stable foundation those phases consume.

@@ -21,12 +21,21 @@ import {
   worldBounds,
   type DockConfig,
 } from "@/engine";
-import { autoSplitConfig } from "@/engine";
-import type { NormalizedPiece, PieceConstruction } from "@/engine";
+import {
+  autoSplitConfig,
+  accessoryWorldPos,
+  defaultConstructionFor,
+  depthAtDistanceFt,
+  resolveBathymetry,
+  resolveConstructions,
+} from "@/engine";
+import type { AccessoryKind, NormalizedPiece, PieceConstruction } from "@/engine";
+import { deckMaterial, pileColor, FLOAT_COLOR, WHEEL_COLOR, WATER_COLOR, WATER_OPACITY } from "@/lib/view3dMaterials";
 
 export interface SceneBox {
-  /** Phase 8: `wheel` is a cylinder (roll-in tire); `bracket` is its arm slab. */
-  kind: "deck" | "float" | "pile" | "gangway" | "wheel" | "bracket";
+  /** Phase 8: `wheel` is a cylinder (roll-in tire); `bracket` is its arm slab.
+   *  Phase 11: `accessory` is a small deck-top fixture. */
+  kind: "deck" | "float" | "pile" | "gangway" | "wheel" | "bracket" | "accessory";
   /** Center position in feet (x along length, y vertical, z across width). */
   x: number;
   y: number;
@@ -43,6 +52,8 @@ export interface SceneBox {
   tri?: { vertices: [number, number][]; legAFt: number; legBFt: number; posX: number; posY: number; rotationDeg: number };
   /** Phase 8 wheel cylinder: radius (ft); axis runs along z (rolls down-length). */
   wheel?: { radiusFt: number };
+  /** Phase 11: which accessory this fixture is (for the mesh shape). */
+  accessoryKind?: AccessoryKind;
 }
 
 /**
@@ -73,6 +84,10 @@ export interface SceneSpec {
   bounds: { lengthFt: number; widthFt: number };
   /** Absolute world bounding box (feet, top-down x/z) for camera framing. */
   box: { minX: number; minZ: number; maxX: number; maxZ: number };
+  /** Phase 11: lake-bed depth samples (distance from shore → depth) for the bed mesh. */
+  lakeBed: { distanceFromShoreFt: number; depthFt: number }[];
+  /** Phase 11: water plane appearance. */
+  water: { color: string; opacity: number };
 }
 
 export interface SceneColors {
@@ -124,7 +139,16 @@ export function deckBottomYFor(piece: NormalizedPiece, config: DockConfig): numb
 export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColors>): SceneSpec {
   // Phase 9: render the assembly auto-split preview (too-long sections split).
   config = autoSplitConfig(config);
-  const colors = { ...DEFAULT_COLORS, ...colorsIn };
+  // Phase 11: colors come from the chosen materials (decking / frame / pile),
+  // still overridable via colorsIn (tenant branding).
+  const colors: SceneColors = {
+    deck: deckMaterial(config.overall.deckingMaterial).color,
+    float: FLOAT_COLOR,
+    pile: pileColor(config.overall.pileMaterial),
+    gangway: "#c9a36a",
+    wheel: WHEEL_COLOR,
+    ...colorsIn,
+  };
   const pieces = resolvePieces(config);
   const bay = maxGapFtFor(config);
   const boxes: SceneBox[] = [];
@@ -146,7 +170,7 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
       w: Math.max(0.5, maxX - minX),
       h: DECK_THICK_FT,
       d: Math.max(0.5, maxZ - minZ),
-      color: colors.deck,
+      color: piece.kind === "gangway" ? colors.gangway : colors.deck,
       footprint: piece.kind === "right_triangle" ? "triangle" : "rectangle",
     };
     if (piece.kind === "right_triangle") {
@@ -202,14 +226,36 @@ export function buildSceneSpec(config: DockConfig, colorsIn?: Partial<SceneColor
     }
   }
 
+  // Phase 11: accessory meshes sit on each piece's deck top at its edge position
+  // (sourced from the original pieces — normalization drops accessories).
+  for (const dp of config.pieces ?? []) {
+    if (!dp.accessories?.length) continue;
+    const cons = resolveConstructions(dp, defaultConstructionFor(config.dockType));
+    const deckTop = cons.reduce((s, c) => s + deckYForConstruction(c, config), 0) / cons.length + DECK_THICK_FT;
+    for (const a of dp.accessories) {
+      const w = accessoryWorldPos(dp, a);
+      boxes.push({ kind: "accessory", x: w.xFt, y: deckTop, z: w.yFt, w: 0.6, h: 1, d: 0.6, color: "#1f2937", accessoryKind: a.kind });
+    }
+  }
+
   const b = worldBounds(pieces);
+  // Phase 11: lake-bed profile (sampled across the design) for the viewer to mesh.
+  const bathy = resolveBathymetry(config);
+  const farX = Math.max(40, b.maxX + 5);
+  const lakeBed: { distanceFromShoreFt: number; depthFt: number }[] = [];
+  for (let d = 0; d <= farX; d += Math.max(1, farX / 24)) {
+    lakeBed.push({ distanceFromShoreFt: round1(d), depthFt: round1(depthAtDistanceFt(bathy, d)) });
+  }
   return {
     boxes,
     bounds: { lengthFt: Math.max(1, b.maxX - b.minX), widthFt: Math.max(1, b.maxY - b.minY) },
-    // Absolute world box (feet) so the viewer can frame OFF-ORIGIN designs.
     box: { minX: b.minX, minZ: b.minY, maxX: b.maxX, maxZ: b.maxY },
+    lakeBed,
+    water: { color: WATER_COLOR, opacity: WATER_OPACITY },
   };
 }
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /** Whether Three.js (r128 from CDN) has attached to the global. SSR-safe. */
 export function isThreeAvailable(g: typeof globalThis = globalThis): boolean {

@@ -8,7 +8,7 @@ import "server-only";
  * Idempotent: safe to run repeatedly from the Prisma seed script.
  */
 
-import { generateStartingDesign, migrateConfigToPhase9, type DockConfig } from "@/engine";
+import { generateStartingDesign, migrateConfigToPhase9, migrateConfigToPhase11, type DockConfig } from "@/engine";
 import { prisma } from "./db.js";
 import { entitlementsForTier, leadCapForTier } from "./entitlements.js";
 import { signUpBuilder } from "./onboarding.js";
@@ -21,6 +21,7 @@ export const PLATFORM_ADMIN_EMAIL = process.env.PLATFORM_ADMIN_EMAIL ?? "admin@d
 
 const STARTER_TEMPLATE_NAME = "Starter floating dock";
 const HYBRID_TEMPLATE_NAME = "Acme hybrid dock";
+const SITE_DEMO_TEMPLATE_NAME = "Site profile demo";
 export const SEEDED_WEBHOOK_URL = "https://example.test/dock-events";
 
 export async function seedAcme(): Promise<string> {
@@ -93,6 +94,35 @@ export async function seedAcme(): Promise<string> {
       ],
     };
     await scope.createTemplate({ name: HYBRID_TEMPLATE_NAME, config: hybrid, createdBy: "seed" });
+  }
+
+  // Phase 11: a site-profile demo — hybrid dock over a bathymetry profile that
+  // trips both new depth advisories (pile in deep water, floats in shallow).
+  const hasSiteDemo = (await scope.listTemplates()).some((t) => t.name === SITE_DEMO_TEMPLATE_NAME);
+  if (!hasSiteDemo) {
+    const base = generateStartingDesign(
+      { depthAtEndLowWaterFt: 8, seasonalFluctuationFt: 2, bottom: "sand", waveExposure: "inland_lake", seasonalIce: true, shoreHeightAboveWaterFt: 3 },
+      { tenantId: ACME_TENANT_ID, dockType: "floating" },
+    );
+    const demo: DockConfig = migrateConfigToPhase11({
+      ...base,
+      overall: { ...base.overall, lengthFt: 48, widthFt: 8, maxGapFt: 8 },
+      bathymetry: {
+        shoreHeightFt: 3, waterHeightFt: 0, landSlopePct: 15,
+        depthProfile: [
+          { distanceFromShoreFt: 0, depthFt: 0 },
+          { distanceFromShoreFt: 6, depthFt: 2 },
+          { distanceFromShoreFt: 24, depthFt: 9 },
+          { distanceFromShoreFt: 48, depthFt: 15 },
+        ],
+      },
+      pieces: [
+        { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 16, widthFt: 8, constructions: ["floating"] },
+        { pieceKind: "rectangle", posX: 16, posY: 0, rotationDeg: 0, lengthFt: 16, widthFt: 8, constructions: ["pile"] },
+        { pieceKind: "rectangle", posX: 32, posY: 0, rotationDeg: 0, lengthFt: 16, widthFt: 6, constructions: ["wheel"] },
+      ],
+    });
+    await scope.createTemplate({ name: SITE_DEMO_TEMPLATE_NAME, config: demo, createdBy: "seed" });
   }
 
   // Phase 5: seed one webhook endpoint so the jobs flow has somewhere to fire

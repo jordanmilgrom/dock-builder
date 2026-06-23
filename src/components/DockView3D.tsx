@@ -104,11 +104,23 @@ export default function DockView3D({ config, primaryColor, fill = false }: { con
       // Water plane.
       const water = new THREE.Mesh(
         new THREE.PlaneGeometry(span * 4, span * 4),
-        new THREE.MeshStandardMaterial({ color: "#bae6fd", transparent: true, opacity: 0.6 }),
+        new THREE.MeshStandardMaterial({ color: spec.water.color, transparent: true, opacity: spec.water.opacity }),
       );
       water.rotation.x = -Math.PI / 2;
       water.position.set(framing.target.x, 0, framing.target.z);
       scene.add(water);
+
+      // Phase 11: brown lake bed following the bathymetry depth profile.
+      if (spec.lakeBed.length > 1) {
+        const maxDepth = Math.max(...spec.lakeBed.map((p) => p.depthFt), 1);
+        const bed = new THREE.Mesh(
+          new THREE.PlaneGeometry(span * 4, span * 4),
+          new THREE.MeshStandardMaterial({ color: "#6b5436", roughness: 0.95 }),
+        );
+        bed.rotation.x = -Math.PI / 2;
+        bed.position.set(framing.target.x, -maxDepth, framing.target.z);
+        scene.add(bed);
+      }
 
       // Lightweight pointer-drag orbit (no extra deps).
       let theta = 0.6;

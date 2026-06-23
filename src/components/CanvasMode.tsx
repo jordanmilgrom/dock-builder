@@ -20,8 +20,14 @@ import { handleUpDir, angleDeg, applyRotation, snapAngle } from "@/lib/rotationM
 import { marqueeBbox, marqueeSelect } from "@/lib/selection";
 import { defaultPieceForTool, drawnPiece, isDrawableDrag, type DrawTool } from "@/lib/clickDragDraw";
 import { gangwayPreviewRect } from "@/lib/gangwayPreview";
+import { accessoryWorldPos } from "@/engine";
 
 const POS_SNAP_FT = 1;
+
+/** Single-glyph icons for accessory markers on the canvas. */
+const ACCESSORY_ICON: Record<string, string> = {
+  cleat: "T", ladder: "≣", bumper: "◖", edging: "▭", swim_ladder: "≣", rod_holder: "↑", bench: "▬",
+};
 
 function rot(x: number, y: number, deg: Rotation): [number, number] {
   switch (deg) {
@@ -303,7 +309,11 @@ export default function CanvasMode({
   const wts = (x: number, y: number) => worldToScreen(transform, x, y);
   const grid = buildGrid(transform, size);
   const live = action.current;
-  const gangway = gangwayPreviewRect(config, unionBbox(pieces));
+  // Gangway placeholder is a fallback — suppress it once a real gangway piece exists.
+  const hasGangwayPiece = pieces.some((p) => p.pieceKind === "gangway");
+  const gangway = hasGangwayPiece ? null : gangwayPreviewRect(config, unionBbox(pieces));
+  // Phase 11: shoreline band on the LEFT edge (shore is always left).
+  const shoreBandPx = Math.max(0, worldToScreen(transform, unionBbox(pieces).minX, 0).x);
 
   return (
     <div ref={wrapRef} className="relative h-full w-full overflow-hidden bg-sky-50">
@@ -319,6 +329,20 @@ export default function CanvasMode({
         onWheel={onWheel}
         onContextMenu={(e) => { e.preventDefault(); onContextMenu?.({ clientX: e.clientX, clientY: e.clientY, onPiece: false, index: null }); }}
       >
+        {/* Shoreline band on the left (visual context; shore is always left). */}
+        {shoreBandPx > 4 && (
+          <g pointerEvents="none">
+            <defs>
+              <pattern id="shoreHatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="8" height="8" fill="#c5a572" />
+                <line x1="0" y1="0" x2="0" y2="8" stroke="#b08f55" strokeWidth="1.5" />
+              </pattern>
+            </defs>
+            <rect x={0} y={0} width={shoreBandPx} height={size.height} fill="url(#shoreHatch)" opacity={0.85} />
+            <text x={8} y={20} fontSize={12} fontWeight="bold" fill="#7c5e34">← Shore</text>
+          </g>
+        )}
+
         <g stroke="#cbd5e1" strokeWidth={1}>
           {grid.v.map((x, i) => (<line key={`v${i}`} x1={x} y1={0} x2={x} y2={size.height} opacity={0.5} />))}
           {grid.h.map((y, i) => (<line key={`h${i}`} x1={0} y1={y} x2={size.width} y2={y} opacity={0.5} />))}
@@ -358,6 +382,20 @@ export default function CanvasMode({
           );
         })}
 
+        {/* Accessory glyphs at their edge positions. */}
+        {pieces.flatMap((p, pi) =>
+          (p.accessories ?? []).map((a) => {
+            const w = accessoryWorldPos(p, a);
+            const s = wts(w.xFt, w.yFt);
+            return (
+              <g key={`${pi}-${a.id}`} pointerEvents="none">
+                <circle cx={s.x} cy={s.y} r={7} fill="#fff" stroke="#1f2937" strokeWidth={1.5} />
+                <text x={s.x} y={s.y} fontSize={8} textAnchor="middle" dominantBaseline="middle" fill="#1f2937">{ACCESSORY_ICON[a.kind] ?? "•"}</text>
+              </g>
+            );
+          }),
+        )}
+
         {primary != null && pieces[primary] && (
           <Handles piece={pieces[primary]!} wts={wts} color={primaryColor}
             onHandleDown={(e, h) => onHandlePointerDown(e, primary, h)}
@@ -382,6 +420,11 @@ export default function CanvasMode({
           Drag to draw a {armedTool.replace("_", " ")} · Esc to cancel
         </div>
       )}
+
+      {/* North arrow (upper-right), paired with the ← Shore label. */}
+      <div className="pointer-events-none absolute right-3 top-3 text-center text-xs font-semibold text-slate-500">
+        <div className="text-base leading-none">↑</div>N
+      </div>
 
       {/* Zoom controls. */}
       <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs">

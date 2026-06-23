@@ -63,7 +63,27 @@ export { recommendConstructions } from "./recommend.js";
 export type { SiteFields, ConstructionRecommendation } from "./recommend.js";
 export { computeGangway, GANGWAY_MIN_FT, GANGWAY_MAX_FT, GANGWAY_WARN_RATIO } from "./gangway.js";
 export type { GangwayResult } from "./gangway.js";
-export { migrateConfigToPhase8, migrateConfigToPhase9 } from "./migrate.js";
+export {
+  DEFAULT_BATHYMETRY,
+  resolveBathymetry,
+  depthAtDistanceFt,
+  depthAtPieceCenter,
+} from "./bathymetry.js";
+export {
+  edgeLocalPoint,
+  accessoryWorldPos,
+  nearestEdgeForDrop,
+  accessoryCounts,
+  totalAccessoryCount,
+} from "./accessoryPlacement.js";
+export {
+  snapGangwayToEdge,
+  gangwayPieceSlope,
+  isGangway,
+  GANGWAY_SNAP_FT,
+  GANGWAY_PIECE_WARN_RATIO,
+} from "./gangwayPiece.js";
+export { migrateConfigToPhase8, migrateConfigToPhase9, migrateConfigToPhase11 } from "./migrate.js";
 export { resolveConstructions } from "./pieces.js";
 export {
   floatingAreaFt2,

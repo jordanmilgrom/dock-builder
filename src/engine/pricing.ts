@@ -20,6 +20,7 @@ import {
   connectorCount,
 } from "./geometry.js";
 import { resolvePieces } from "./pieces.js";
+import { accessoryCounts } from "./accessoryPlacement.js";
 import { autoSplitConnectorCount } from "./autoSplit.js";
 import type {
   AccessoryConfig,
@@ -77,6 +78,12 @@ export function billableQuantities(config: DockConfig): BillableQuantities {
 
   for (const acc of config.accessories ?? []) {
     accumulateAccessory(q, acc);
+  }
+
+  // Phase 11: per-piece placed accessories add to the same `accessory_<kind>`
+  // keys (additive to the legacy design-level counts — no overlap in practice).
+  for (const [kind, count] of Object.entries(accessoryCounts(config))) {
+    if (count > 0) q[`accessory_${kind}`] = (q[`accessory_${kind}`] ?? 0) + count;
   }
 
   return q;

@@ -6,7 +6,7 @@
 
 import type { DockPiece } from "@/engine";
 
-export type DrawTool = "rectangle" | "square" | "right_triangle";
+export type DrawTool = "rectangle" | "square" | "right_triangle" | "gangway";
 
 export const DRAW_SNAP_FT = 0.5;
 export const DRAW_MIN_FT = 4;
@@ -34,6 +34,9 @@ export function drawnPiece(tool: DrawTool, start: Pt, end: Pt): DockPiece {
 
   if (tool === "right_triangle") {
     return { pieceKind: "right_triangle", posX, posY, rotationDeg: 0, legAFt: w, legBFt: h, constructions: ["floating"], z: 0 };
+  }
+  if (tool === "gangway") {
+    return { pieceKind: "gangway", posX, posY, rotationDeg: 0, lengthFt: w, widthFt: h, constructions: ["floating"], z: 0 };
   }
   return { pieceKind: "rectangle", posX, posY, rotationDeg: 0, lengthFt: w, widthFt: h, constructions: ["floating"], z: 0 };
 }

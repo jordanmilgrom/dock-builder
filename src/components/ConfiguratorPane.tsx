@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   pricingEngine,
@@ -14,19 +14,27 @@ import {
 import { parseViewParam, VIEW_LABELS, VIEW_MODES, viewSearchString, type ViewMode } from "@/lib/viewSwitcher";
 import CanvasMode, { unionBbox } from "./CanvasMode";
 import { placeToRight } from "@/lib/newPiecePlacement";
+import { matchShortcut } from "@/lib/canvasShortcuts";
+import { createHistory } from "@/lib/undoRedo";
+import { bringToFront, copyPieces, duplicatePieces, pastePieces, sendToBack } from "@/lib/clipboardOps";
+import type { DrawTool } from "@/lib/clickDragDraw";
 import SchematicMode from "./SchematicMode";
 import ThreeDMode from "./ThreeDMode";
 import PropertiesPanel from "./PropertiesPanel";
-import CustomPieceModal from "./CustomPieceModal";
+import PieceContextMenu, { type ContextAction, type ContextMenuState } from "./PieceContextMenu";
 import SaveGate, { type CaptureResult } from "./SaveGate";
 import type { DesignActions } from "./DesignProperties";
 
+const TOOLS: { tool: DrawTool; icon: string; label: string }[] = [
+  { tool: "rectangle", icon: "▭", label: "Rectangle" },
+  { tool: "square", icon: "□", label: "Square" },
+  { tool: "right_triangle", icon: "◹", label: "Right triangle" },
+];
+
 /**
- * Canvas-first configurator shell (Phase 7). Three columns — left palette, the
- * active view (Canvas / Schematic / 3D), right Properties — under a top view
- * switcher persisted in `?view=`. Owns the in-memory DockConfig + selection and
- * runs the (unchanged) pricing/validation engines for live feedback. This
- * replaces the old two-column Configurator form across every call site.
+ * Canvas-first configurator shell (Phase 7 + 10). Owns the DockConfig, the
+ * multi-piece selection set, the armed drawing tool, undo/redo, the clipboard,
+ * and keyboard shortcuts (Canvas tab only). Engines stay untouched.
  */
 export default function ConfiguratorPane({
   designId,
@@ -62,7 +70,9 @@ export default function ConfiguratorPane({
   const isBuilder = mode === "builder";
 
   const [config, setConfig] = useState<DockConfig>(initialConfig);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [armedTool, setArmedTool] = useState<DrawTool | null>(null);
+  const [menu, setMenu] = useState<ContextMenuState | null>(null);
   const [version, setVersion] = useState(initialVersion);
   const [captured, setCaptured] = useState(emailCaptured || isBuilder);
   const [submitted, setSubmitted] = useState(alreadySubmitted);
@@ -72,8 +82,13 @@ export default function ConfiguratorPane({
   const [pending, setPending] = useState<null | "save" | "pdf">(null);
   const [magicLink, setMagicLink] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [modal, setModal] = useState<null | DockPiece["pieceKind"]>(null);
   const [paletteOpen, setPaletteOpen] = useState(true);
+
+  const clipboard = useRef<DockPiece[]>([]);
+  const history = useRef(createHistory<DockConfig>());
+  const applying = useRef(false);
+
+  const primary = selectedIndices.length ? selectedIndices[selectedIndices.length - 1]! : null;
 
   const profile = useMemo(
     () => profiles[config.dockType] ?? profiles[initialConfig.dockType]!,
@@ -88,6 +103,13 @@ export default function ConfiguratorPane({
     { pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: config.overall.lengthFt, widthFt: config.overall.widthFt },
   ];
 
+  // Undo/redo: snapshot every config change (rapid edits coalesce in the buffer).
+  useEffect(() => {
+    if (applying.current) { applying.current = false; return; }
+    history.current.push(config);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config]);
+
   function update(mut: (c: DockConfig) => DockConfig) {
     setConfig((c) => mut(structuredClone(c)));
     setDirty(true);
@@ -100,38 +122,104 @@ export default function ConfiguratorPane({
     });
   }
 
-  // ---- palette / piece ops ----
+  // ---- piece ops ----
   function addPiece(p: DockPiece) {
-    // Place to the right of the existing design (1 ft gap) so new pieces never
-    // land on top of existing ones; the canvas auto-fits to bring it into view.
     const { posX, posY } = pieces.length ? placeToRight(unionBbox(pieces)) : { posX: 0, posY: 0 };
     setPieces([...pieces, { ...p, posX, posY }]);
-    setSelected(pieces.length);
+    setSelectedIndices([pieces.length]);
+  }
+  function addDrawnPiece(p: DockPiece) {
+    setPieces([...pieces, p]);
+    setSelectedIndices([pieces.length]);
   }
   function updatePiece(patch: Partial<DockPiece>) {
-    if (selected == null) return;
-    setPieces(pieces.map((p, i) => (i === selected ? ({ ...p, ...patch } as DockPiece) : p)));
+    if (primary == null) return;
+    setPieces(pieces.map((p, i) => (i === primary ? ({ ...p, ...patch } as DockPiece) : p)));
   }
-  function deletePiece() {
-    if (selected == null) return;
-    setPieces(pieces.filter((_, i) => i !== selected));
-    setSelected(null);
+  function deleteSelection() {
+    if (!selectedIndices.length) return;
+    const drop = new Set(selectedIndices);
+    setPieces(pieces.filter((_, i) => !drop.has(i)));
+    setSelectedIndices([]);
+  }
+  function duplicateSelection() {
+    if (!selectedIndices.length) return;
+    const { pieces: next, newIndices } = duplicatePieces(pieces, selectedIndices);
+    setPieces(next);
+    setSelectedIndices(newIndices);
+  }
+  function copySelection() {
+    if (selectedIndices.length) clipboard.current = copyPieces(pieces, selectedIndices);
+  }
+  function pasteClipboard() {
+    if (!clipboard.current.length) return;
+    const { pieces: next, newIndices } = pastePieces(pieces, clipboard.current);
+    setPieces(next);
+    setSelectedIndices(newIndices);
+  }
+  function selectAll() {
+    setSelectedIndices(pieces.map((_, i) => i));
+  }
+  function undo() {
+    const s = history.current.undo();
+    if (s) { applying.current = true; setConfig(s); setSelectedIndices([]); setDirty(true); }
+  }
+  function redo() {
+    const s = history.current.redo();
+    if (s) { applying.current = true; setConfig(s); setSelectedIndices([]); setDirty(true); }
   }
 
-  // ---- persistence (unchanged from the old Configurator) ----
+  // ---- keyboard shortcuts (Canvas tab only; ignore while typing) ----
+  useEffect(() => {
+    if (view !== "canvas") return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      const a = matchShortcut(e);
+      if (!a) return;
+      e.preventDefault();
+      switch (a) {
+        case "copy": copySelection(); break;
+        case "paste": pasteClipboard(); break;
+        case "duplicate": duplicateSelection(); break;
+        case "delete": deleteSelection(); break;
+        case "selectAll": selectAll(); break;
+        case "undo": undo(); break;
+        case "redo": redo(); break;
+        case "deselect": setSelectedIndices([]); setArmedTool(null); setMenu(null); break;
+        case "fit": break; // handled inside CanvasMode (it owns the transform)
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  function onContextAction(a: ContextAction) {
+    switch (a) {
+      case "duplicate": duplicateSelection(); break;
+      case "delete": deleteSelection(); break;
+      case "bringToFront": setPieces(bringToFront(pieces, selectedIndices)); break;
+      case "sendToBack": setPieces(sendToBack(pieces, selectedIndices)); break;
+      case "paste": pasteClipboard(); break;
+      case "selectAll": selectAll(); break;
+      case "properties": break;
+      case "fit": break;
+    }
+  }
+
+  // ---- persistence ----
   async function persist(): Promise<boolean> {
     setBusy(true);
     try {
       const res = await fetch(`/api/designs/${designId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config }),
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
       });
       const data = (await res.json()) as { revision?: { version: number }; error?: string };
       if (!res.ok || !data.revision) { setStatus("Save failed."); return false; }
       setVersion(data.revision.version);
       setDirty(false);
       setStatus(`Saved v${data.revision.version}`);
+      history.current.clear(); // saved revisions are the long-term history
       return true;
     } catch {
       setStatus("Network error.");
@@ -158,19 +246,14 @@ export default function ConfiguratorPane({
       const res = await fetch(`/api/designs/${designId}/submit`, { method: "POST" });
       if (res.ok) { setSubmitted(true); setStatus("Submitted — the builder will review and send your quote."); }
       else setStatus("Could not submit.");
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
   async function handleSendQuote() {
     if (hasErrors || !leadId || !quotable) return;
-    setBusy(true);
-    setStatus(null);
+    setBusy(true); setStatus(null);
     try {
       const res = await fetch(`/api/builder/leads/${leadId}/quote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
       });
       const data = (await res.json()) as { ok?: boolean; revision?: { version: number } };
       if (res.ok && data.ok) {
@@ -178,16 +261,10 @@ export default function ConfiguratorPane({
         setDirty(false);
         setStatus(`Quote sent${data.revision ? ` (v${data.revision.version})` : ""}.`);
       } else setStatus("Could not send quote.");
-    } catch {
-      setStatus("Network error.");
-    } finally {
-      setBusy(false);
-    }
+    } catch { setStatus("Network error."); } finally { setBusy(false); }
   }
   async function onCaptured(r: CaptureResult) {
-    setCaptured(true);
-    setGate(null);
-    setMagicLink(r.magicLink || null);
+    setCaptured(true); setGate(null); setMagicLink(r.magicLink || null);
     if (pending === "save" || pending === "pdf") {
       const ok = await persist();
       if (ok && pending === "pdf") window.open(`/api/designs/${designId}/pdf`, "_blank");
@@ -207,22 +284,33 @@ export default function ConfiguratorPane({
 
   return (
     <div className="flex h-[calc(100vh-12rem)] min-h-[32rem] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      {/* Left rail — palette */}
+      {/* Left rail — drawing tools */}
       <div className={`flex flex-col border-r border-slate-200 bg-slate-50 transition-all ${paletteOpen ? "w-[220px]" : "w-16"}`}>
         <button
           onClick={() => setPaletteOpen((o) => !o)}
           className="flex items-center justify-between border-b border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100"
         >
-          {paletteOpen && <span>Add pieces</span>}
+          {paletteOpen && <span>Draw</span>}
           <span>{paletteOpen ? "«" : "»"}</span>
         </button>
         {view === "canvas" ? (
           <div className="flex flex-col gap-1 p-2">
-            <PaletteBtn open={paletteOpen} icon="▭" label="Rectangle 8×20" onClick={() => addPiece({ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 20, widthFt: 8 })} />
-            <PaletteBtn open={paletteOpen} icon="□" label="Square 8×8" onClick={() => addPiece({ pieceKind: "rectangle", posX: 0, posY: 0, rotationDeg: 0, lengthFt: 8, widthFt: 8 })} />
-            <PaletteBtn open={paletteOpen} icon="◹" label="Right triangle 4×4" onClick={() => addPiece({ pieceKind: "right_triangle", posX: 0, posY: 0, rotationDeg: 0, legAFt: 4, legBFt: 4 })} />
-            <PaletteBtn open={paletteOpen} icon="▭+" label="Custom rectangle…" onClick={() => setModal("rectangle")} />
-            <PaletteBtn open={paletteOpen} icon="◹+" label="Custom triangle…" onClick={() => setModal("right_triangle")} />
+            {TOOLS.map((t) => (
+              <button
+                key={t.tool}
+                onClick={() => setArmedTool((cur) => (cur === t.tool ? null : t.tool))}
+                title={`${t.label} — click to arm, then click-drag on the canvas (click to drop a default size)`}
+                className={`flex items-center gap-2 rounded border px-2 py-2 text-left text-sm ${armedTool === t.tool ? "border-brand bg-cyan-100 text-brand" : "border-slate-200 bg-white text-slate-700 hover:border-brand hover:bg-cyan-50"}`}
+              >
+                <span className="text-base leading-none">{t.icon}</span>
+                {paletteOpen && <span className="truncate">{t.label}</span>}
+              </button>
+            ))}
+            {paletteOpen && (
+              <p className="mt-1 px-1 text-[11px] leading-snug text-slate-400">
+                Click a tool, then drag on the canvas to draw — or click once to drop a default size.
+              </p>
+            )}
           </div>
         ) : (
           paletteOpen && <p className="p-3 text-xs text-slate-400">Switch to Canvas to add or edit pieces.</p>
@@ -248,9 +336,17 @@ export default function ConfiguratorPane({
           {view === "canvas" && (
             <CanvasMode
               pieces={pieces}
-              selectedIndex={selected}
+              config={config}
+              selectedIndices={selectedIndices}
               onChange={setPieces}
-              onSelect={setSelected}
+              onSelectionChange={setSelectedIndices}
+              armedTool={armedTool}
+              onDrawn={addDrawnPiece}
+              onDisarm={() => setArmedTool(null)}
+              onContextMenu={(info) => {
+                if (info.onPiece && info.index != null && !selectedIndices.includes(info.index)) setSelectedIndices([info.index]);
+                setMenu({ x: info.clientX, y: info.clientY, onPiece: info.onPiece, canPaste: clipboard.current.length > 0 });
+              }}
               {...(primaryColor ? { primaryColor } : {})}
             />
           )}
@@ -264,12 +360,13 @@ export default function ConfiguratorPane({
       {/* Right rail — properties */}
       <div className="w-[340px] border-l border-slate-200">
         <PropertiesPanel
-          selectedIndex={selected}
-          piece={selected != null ? pieces[selected] ?? null : null}
+          selectedIndex={primary}
+          selectionCount={selectedIndices.length}
+          piece={primary != null ? pieces[primary] ?? null : null}
           config={config}
           update={update}
           onUpdatePiece={updatePiece}
-          onDeletePiece={deletePiece}
+          onDeletePiece={deleteSelection}
           validation={validation}
           estimate={estimate}
           priceHidden={priceHidden}
@@ -277,9 +374,7 @@ export default function ConfiguratorPane({
         />
       </div>
 
-      {modal && (
-        <CustomPieceModal kind={modal} onCancel={() => setModal(null)} onAdd={(p) => { addPiece(p); setModal(null); }} />
-      )}
+      {menu && <PieceContextMenu state={menu} onAction={onContextAction} onClose={() => setMenu(null)} />}
       {gate && (
         <SaveGate designId={designId} source="save_gate" brandName={brandName} onCancel={() => { setGate(null); setPending(null); }} onCaptured={onCaptured} />
       )}
@@ -289,19 +384,6 @@ export default function ConfiguratorPane({
         </div>
       )}
     </div>
-  );
-}
-
-function PaletteBtn({ open, icon, label, onClick }: { open: boolean; icon: string; label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      className="flex items-center gap-2 rounded border border-slate-200 bg-white px-2 py-2 text-left text-sm text-slate-700 hover:border-brand hover:bg-cyan-50"
-    >
-      <span className="text-base leading-none">{icon}</span>
-      {open && <span className="truncate">{label}</span>}
-    </button>
   );
 }
 

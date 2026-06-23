@@ -179,5 +179,8 @@ Later phases (not built yet) per §8:
 - **Phase 9** — Domain corrections: multi-factor recommendation, auto-split for
   too-long sections, per-construction schematic + 3D rendering, gangway-by-length,
   and multi-construction-per-piece (`constructions[]`). See [PHASE9.md](PHASE9.md).
+- **Phase 10** — Canvas UX: multi-select + marquee, right-click menu, keyboard
+  shortcuts, undo/redo, zoom buttons, a rotation handle that rotates with the
+  piece, and Illustrator-style click-drag drawing. See [PHASE10.md](PHASE10.md).
 
 The engines here are the stable foundation those phases consume.
